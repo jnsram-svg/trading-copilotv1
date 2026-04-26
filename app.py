@@ -6,17 +6,30 @@ import re
 
 st.set_page_config(layout="centered")
 
+DRAFT_FILE = "draft_state.csv"
+
+#━━━━━━━━━━━━━━━━━━━
+# LOAD DRAFT
+#━━━━━━━━━━━━━━━━━━━
+if os.path.exists(DRAFT_FILE):
+    try:
+        draft = pd.read_csv(DRAFT_FILE).iloc[0].to_dict()
+        for key, val in draft.items():
+            st.session_state[key] = val
+    except:
+        pass
+
 #━━━━━━━━━━━━━━━━━━━
 # HEADER
 #━━━━━━━━━━━━━━━━━━━
 st.markdown("## 📱 Trading Copilot")
 
 #━━━━━━━━━━━━━━━━━━━
-# SESSION STATE (for hybrid input)
+# SESSION STATE DEFAULTS
 #━━━━━━━━━━━━━━━━━━━
-for key in ["entry","sl","target"]:
+for key in ["entry","sl","target","plan_text"]:
     if key not in st.session_state:
-        st.session_state[key] = 0.0
+        st.session_state[key] = 0.0 if key != "plan_text" else "Bias: \nKey Levels: \nHTF Trend: "
 
 #━━━━━━━━━━━━━━━━━━━
 # MODE
@@ -24,13 +37,9 @@ for key in ["entry","sl","target"]:
 mode = st.radio("Mode", ["Range","Breakout","Opening"], horizontal=True)
 
 #━━━━━━━━━━━━━━━━━━━
-# 🧠 PLAN (FIXED STRUCTURE — NO VOICE)
+# PLAN (STATIC)
 #━━━━━━━━━━━━━━━━━━━
 st.markdown("### 🧠 Plan (CRT)")
-
-if "plan_text" not in st.session_state:
-    st.session_state.plan_text = "Bias: \nKey Levels: \nHTF Trend: "
-
 plan_text = st.text_area("", key="plan_text", height=90)
 
 def extract_plan(plan_text):
@@ -43,15 +52,12 @@ def extract_plan(plan_text):
 bias_plan, key_levels_plan, htf_trend = extract_plan(plan_text)
 
 #━━━━━━━━━━━━━━━━━━━
-# 🎤 VOICE INPUT (ONLY FOR ENTRY / SL / TARGET)
+# VOICE INPUT (TRADE ONLY)
 #━━━━━━━━━━━━━━━━━━━
-voice_input = st.text_input(
-    "🎤 Voice Input (e.g., Buy 210 SL 205 Target 230)"
-)
+voice_input = st.text_input("🎤 Voice Input (Buy 210 SL 205 Target 230)")
 
 def extract_trade_levels(text):
     text = text.lower()
-
     numbers = list(map(float, re.findall(r"\d+\.?\d*", text)))
 
     entry, sl, target = None, None, None
@@ -72,16 +78,13 @@ def extract_trade_levels(text):
 
     return entry, sl, target
 
-# Apply voice input safely
 if voice_input:
     e, s, t = extract_trade_levels(voice_input)
 
     if e is not None and st.session_state.entry == 0.0:
         st.session_state.entry = e
-
     if s is not None and st.session_state.sl == 0.0:
         st.session_state.sl = s
-
     if t is not None and st.session_state.target == 0.0:
         st.session_state.target = t
 
@@ -122,12 +125,10 @@ target = st.number_input("Target", key="target")
 if st.button("🚀 Evaluate Trade"):
 
     tsl_condition = True if mode == "Opening" else tsl
-
     score = 0
 
     if tsl_condition:
 
-        # RANGE
         if mode == "Range":
             score = (
                 {"No":0,"1T":1,"2T":2,"3T":3}[cons] +
@@ -135,7 +136,6 @@ if st.button("🚀 Evaluate Trade"):
                 {"No":0,"0.6":1,"0.78":2}[retr]
             )
 
-        # BREAKOUT
         elif mode == "Breakout":
             score = (
                 {"No":0,"Yes":2}[tl] +
@@ -143,7 +143,6 @@ if st.button("🚀 Evaluate Trade"):
                 {"Neutral":0,"Above 0.786":2,"Below 0.214":2}[htf]
             )
 
-        # OPENING
         else:
             base = {
                 ("Buy","Up"):3,
@@ -152,16 +151,11 @@ if st.button("🚀 Evaluate Trade"):
                 ("Sell","Up"):2
             }.get((prev, gap), 0)
 
-            score = (
-                base +
-                {"No":0,"Yes":2}[op_cons] +
-                {"No":0,"Yes":1}[op_bb]
-            )
+            score = base + {"No":0,"Yes":2}[op_cons] + {"No":0,"Yes":1}[op_bb]
 
     else:
         st.warning("TSL not satisfied → No Trade")
 
-    # RR
     risk = abs(entry - sl)
     reward = abs(target - entry)
     rr = reward / risk if risk != 0 else 0
@@ -172,14 +166,7 @@ if st.button("🚀 Evaluate Trade"):
     st.write(f"Score: {score} | RR: {round(rr,2)}")
 
     follow = st.radio("Did you take this trade?", ["Yes","No"], horizontal=True)
-
-    outcome = st.radio(
-        "Outcome",
-        ["Pending","Win","Loss","BE"],
-        horizontal=True,
-        index=0
-    )
-
+    outcome = st.radio("Outcome", ["Pending","Win","Loss","BE"], horizontal=True, index=0)
     review = st.text_area("🔍 Review", height=70)
 
     sim_mode = st.session_state.get("sim_mode", True)
@@ -193,12 +180,10 @@ if st.button("🚀 Evaluate Trade"):
         "RR": rr,
         "Followed": follow,
         "Outcome": outcome,
-
         "Plan": plan_text,
         "BiasPlan": bias_plan,
         "KeyLevelsPlan": key_levels_plan,
         "HTFTrend": htf_trend,
-
         "Review": review
     }
 
@@ -212,7 +197,23 @@ if st.button("🚀 Evaluate Trade"):
 
     df.to_csv(file_name, index=False)
 
+    # Clear draft after save
+    if os.path.exists(DRAFT_FILE):
+        os.remove(DRAFT_FILE)
+
     st.success("Saved ✅")
+
+#━━━━━━━━━━━━━━━━━━━
+# AUTO SAVE DRAFT
+#━━━━━━━━━━━━━━━━━━━
+draft_data = {
+    "entry": st.session_state.get("entry", 0.0),
+    "sl": st.session_state.get("sl", 0.0),
+    "target": st.session_state.get("target", 0.0),
+    "plan_text": st.session_state.get("plan_text", "")
+}
+
+pd.DataFrame([draft_data]).to_csv(DRAFT_FILE, index=False)
 
 #━━━━━━━━━━━━━━━━━━━
 # CONTROLS
@@ -244,7 +245,6 @@ try:
 
     total = len(df)
     wins = len(df[df["Outcome"] == "Win"])
-
     win_rate = round((wins / total)*100, 2) if total > 0 else 0
 
     c1, c2, c3 = st.columns(3)
