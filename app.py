@@ -6,7 +6,7 @@ import os
 st.set_page_config(layout="centered")
 
 #━━━━━━━━━━━━━━━━━━━
-# HEADER
+# MINIMAL HEADER
 #━━━━━━━━━━━━━━━━━━━
 st.markdown("## 📱 Trading Copilot")
 
@@ -16,11 +16,9 @@ st.markdown("## 📱 Trading Copilot")
 mode = st.radio("Mode", ["Range","Breakout","Opening"], horizontal=True)
 
 #━━━━━━━━━━━━━━━━━━━
-# PLAN SECTION (NEW)
+# PLAN
 #━━━━━━━━━━━━━━━━━━━
-st.markdown("### 🧠 Plan")
-
-plan = st.text_area("What is your plan?", height=80)
+plan = st.text_area("🧠 Plan (Why this trade?)", height=70)
 
 #━━━━━━━━━━━━━━━━━━━
 # TSL
@@ -83,6 +81,7 @@ if st.button("🚀 Evaluate Trade"):
     else:
         st.warning("TSL not satisfied → No Trade")
 
+    # RR
     risk = abs(entry - sl)
     reward = abs(target - entry)
     rr = reward / risk if risk != 0 else 0
@@ -94,9 +93,11 @@ if st.button("🚀 Evaluate Trade"):
 
     follow = st.radio("Follow Trade?", ["Yes","No"], horizontal=True)
 
-    #━━━━━━━━ REVIEW SECTION (NEW)
-    st.markdown("### 🔍 Review")
-    review = st.text_area("Post-trade thoughts", height=80)
+    #━━━━━━━━ OUTCOME
+    outcome = st.radio("Outcome", ["Win","Loss","BE"], horizontal=True)
+
+    #━━━━━━━━ REVIEW
+    review = st.text_area("🔍 Review (What happened?)", height=70)
 
     #━━━━━━━━ FILE MODE
     sim_mode = st.session_state.get("sim_mode", True)
@@ -109,6 +110,7 @@ if st.button("🚀 Evaluate Trade"):
         "Decision": decision,
         "RR": rr,
         "Followed": follow,
+        "Outcome": outcome,
         "Plan": plan,
         "Review": review
     }
@@ -126,7 +128,7 @@ if st.button("🚀 Evaluate Trade"):
     st.success("Saved ✅")
 
 #━━━━━━━━━━━━━━━━━━━
-# BOTTOM CONTROLS
+# 🔻 BOTTOM CONTROL PANEL
 #━━━━━━━━━━━━━━━━━━━
 st.markdown("---")
 
@@ -144,7 +146,7 @@ with c2:
             st.info("No simulation data found")
 
 #━━━━━━━━━━━━━━━━━━━
-# ANALYTICS
+# 📊 ANALYTICS
 #━━━━━━━━━━━━━━━━━━━
 st.markdown("### 📊 Analytics")
 
@@ -154,17 +156,53 @@ try:
     df = pd.read_csv(file_name)
 
     total = len(df)
-    strong = len(df[df["Decision"] == "STRONG"])
-    followed = len(df[df["Followed"] == "Yes"])
+    wins = len(df[df["Outcome"] == "Win"])
 
-    win_rate = round((strong / total)*100, 2) if total > 0 else 0
+    win_rate = round((wins / total)*100, 2) if total > 0 else 0
 
     c1, c2, c3 = st.columns(3)
     c1.metric("Trades", total)
-    c2.metric("Strong", strong)
+    c2.metric("Wins", wins)
     c3.metric("Win %", win_rate)
 
     st.dataframe(df.tail(10), use_container_width=True)
+
+except:
+    st.info("No data yet")
+
+#━━━━━━━━━━━━━━━━━━━
+# 📈 WIN RATE BY SCORE
+#━━━━━━━━━━━━━━━━━━━
+st.markdown("### 📈 Win Rate by Score")
+
+try:
+    df = pd.read_csv(file_name)
+
+    if "Score" in df.columns and "Outcome" in df.columns:
+
+        score_stats = []
+
+        for s in sorted(df["Score"].dropna().unique()):
+            subset = df[df["Score"] == s]
+
+            total = len(subset)
+            wins = len(subset[subset["Outcome"] == "Win"])
+
+            win_rate = round((wins / total)*100, 2) if total > 0 else 0
+
+            score_stats.append({
+                "Score": s,
+                "Trades": total,
+                "Wins": wins,
+                "Win %": win_rate
+            })
+
+        score_df = pd.DataFrame(score_stats).sort_values(by="Score", ascending=False)
+
+        st.dataframe(score_df, use_container_width=True)
+
+    else:
+        st.info("Score/Outcome data not available yet")
 
 except:
     st.info("No data yet")
