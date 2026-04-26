@@ -9,16 +9,12 @@ st.set_page_config(layout="wide")
 #━━━━━━━━━━━━━━━━━━━
 st.markdown("""
 <style>
-
-/* Hide Streamlit header */
 header {visibility: hidden;}
 
-/* Push content below sticky bar */
 .block-container {
     padding-top: 4.5rem;
 }
 
-/* Sticky top bar */
 .top-bar {
     position: fixed;
     top: 0;
@@ -30,7 +26,6 @@ header {visibility: hidden;}
     border-bottom: 1px solid #2a2f3a;
 }
 
-/* Cards */
 .card {
     background-color: #111827;
     padding: 12px;
@@ -38,7 +33,6 @@ header {visibility: hidden;}
     border: 1px solid #2a2f3a;
 }
 
-/* Summary */
 .summary-box {
     padding: 8px;
     border-radius: 8px;
@@ -51,27 +45,51 @@ header {visibility: hidden;}
 .red {color:#ff4d4d;}
 
 .small {font-size: 0.75rem;}
-
 </style>
 """, unsafe_allow_html=True)
 
 #━━━━━━━━━━━━━━━━━━━
-# SESSION
+# SESSION DEFAULTS
 #━━━━━━━━━━━━━━━━━━━
-if "decision" not in st.session_state:
-    st.session_state.decision = "—"
-if "score" not in st.session_state:
-    st.session_state.score = 0
+defaults = {
+    "tsl": "No",
+    "cons": "No",
+    "bb": "No",
+    "retr": "No",
+    "tl": "No",
+    "sq": "No",
+    "htf": "Neutral",
+    "prev": "Buy",
+    "gap": "None",
+    "entry": 0.0,
+    "target": 0.0,
+    "sl": 0.0,
+    "exit": 0.0,
+    "note": "",
+    "decision": "—",
+    "score": 0
+}
+
+for k, v in defaults.items():
+    if k not in st.session_state:
+        st.session_state[k] = v
 
 #━━━━━━━━━━━━━━━━━━━
-# 🔝 STICKY TOP BAR + SUMMARY
+# RESET FUNCTION
+#━━━━━━━━━━━━━━━━━━━
+def reset_inputs():
+    for k, v in defaults.items():
+        st.session_state[k] = v
+
+#━━━━━━━━━━━━━━━━━━━
+# 🔝 TOP BAR
 #━━━━━━━━━━━━━━━━━━━
 st.markdown('<div class="top-bar">', unsafe_allow_html=True)
 
 c1, c2, c3, c4 = st.columns([1,2,1,1.2])
 
 with c1:
-    tsl_flip = st.selectbox("TSL", ["Yes","No"])
+    tsl_flip = st.radio("TSL", ["Yes","No"], horizontal=True, key="tsl")
 
 with c2:
     mode = st.radio("Mode", ["Range","Breakout","Opening"], horizontal=True)
@@ -79,11 +97,9 @@ with c2:
 with c3:
     sim_mode = st.toggle("Sim", True)
 
-# 👉 SUMMARY HERE
 with c4:
     decision = st.session_state.decision
     score = st.session_state.score
-
     color = "green" if decision=="STRONG" else "yellow" if decision=="MODERATE" else "red"
 
     st.markdown(f"""
@@ -102,45 +118,43 @@ file_name = "simulation_trades.csv" if sim_mode else "live_trades.csv"
 #━━━━━━━━━━━━━━━━━━━
 left, right = st.columns([1.2,1])
 
-# LEFT SIDE
 with left:
     st.markdown('<div class="card">', unsafe_allow_html=True)
 
     if mode == "Range":
-        cons = st.selectbox("Cons", ["No","Yes","2T","3T"])
-        bb = st.selectbox("BB", ["Yes","No"])
-        retr = st.selectbox("Ret", ["No","0.6","0.78"])
+        cons = st.selectbox("Cons", ["No","Yes","2T","3T"], key="cons")
+        bb = st.selectbox("BB", ["Yes","No"], key="bb")
+        retr = st.selectbox("Ret", ["No","0.6","0.78"], key="retr")
 
     elif mode == "Breakout":
-        tl = st.selectbox("Trendline", ["No","Yes"])
-        sq = st.selectbox("Squeeze", ["Yes","No"])
-        htf = st.selectbox("HTF", ["Above 0.786","Below 0.214","Neutral"])
+        tl = st.selectbox("Trendline", ["No","Yes"], key="tl")
+        sq = st.selectbox("Squeeze", ["Yes","No"], key="sq")
+        htf = st.selectbox("HTF", ["Above 0.786","Below 0.214","Neutral"], key="htf")
 
     else:
-        prev = st.selectbox("Prev", ["Buy","Sell"])
-        gap = st.selectbox("Gap", ["Up","Down","None"])
+        prev = st.selectbox("Prev", ["Buy","Sell"], key="prev")
+        gap = st.selectbox("Gap", ["Up","Down","None"], key="gap")
 
     st.markdown('</div>', unsafe_allow_html=True)
 
-# RIGHT SIDE (NOTE ONLY NOW)
 with right:
-    note = st.text_area("Note", height=120)
+    note = st.text_area("Note", height=120, key="note")
 
 #━━━━━━━━━━━━━━━━━━━
-# ENTRY SECTION
+# ENTRY
 #━━━━━━━━━━━━━━━━━━━
 st.markdown("---")
 
 c1, c2 = st.columns(2)
-entry = c1.number_input("Entry")
-target = c2.number_input("Target")
+entry = c1.number_input("Entry", key="entry")
+target = c2.number_input("Target", key="target")
 
 c1, c2 = st.columns(2)
-sl = c1.number_input("SL")
-exit_price = c2.number_input("Exit")
+sl = c1.number_input("SL", key="sl")
+exit_price = c2.number_input("Exit", key="exit")
 
 #━━━━━━━━━━━━━━━━━━━
-# AUTO EVALUATION
+# EVALUATION
 #━━━━━━━━━━━━━━━━━━━
 score = 0
 
@@ -206,7 +220,7 @@ if status:
     st.write(f"{status} | {round(pnl,2)}")
 
 #━━━━━━━━━━━━━━━━━━━
-# SAVE
+# SAVE + RESET
 #━━━━━━━━━━━━━━━━━━━
 if st.button("SAVE TRADE"):
 
@@ -233,7 +247,11 @@ if st.button("SAVE TRADE"):
         pass
 
     df.to_csv(file_name, index=False)
-    st.success("Saved")
+
+    st.success("Saved ✅")
+
+    # 🔥 RESET ALL INPUTS
+    reset_inputs()
 
 #━━━━━━━━━━━━━━━━━━━
 # ANALYTICS
