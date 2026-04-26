@@ -2,160 +2,207 @@ import streamlit as st
 import pandas as pd
 from datetime import datetime
 
-st.set_page_config(layout="wide")
+st.set_page_config(page_title="Trading Copilot", layout="centered")
+
+st.title("📱 Trading Copilot (Stable Version)")
 
 #━━━━━━━━━━━━━━━━━━━
-# STYLE
+# STEP 1 — TSL
 #━━━━━━━━━━━━━━━━━━━
-st.markdown("""
-<style>
-header {visibility:hidden;}
-.block-container {padding-top: 0.8rem;}
-.top-bar {
-    position: fixed;
-    top:0; left:0; right:0;
-    background:#111827;
-    padding:8px;
-    z-index:999;
-}
-.summary-box {
-    padding:6px;
-    border-radius:6px;
-    border:1px solid #333;
-    text-align:center;
-}
-.green{color:#00ff88;}
-.yellow{color:#ffaa00;}
-.red{color:#ff4d4d;}
-</style>
-""", unsafe_allow_html=True)
+tsl_flip = st.checkbox("🔁 TSL Flip (Required for Range/Breakout only)")
 
 #━━━━━━━━━━━━━━━━━━━
-# DEFAULT STATE
+# STEP 2 — MODE
 #━━━━━━━━━━━━━━━━━━━
-defaults = {
-    "tsl":"No",
-    "mode":"Range",
-    "cons":"No",
-    "bb":"No",
-    "retr":"No",
-    "tl":"No",
-    "sq":"No",
-    "htf":"Neutral",
-    "prev":"Buy",
-    "gap":"None",
-    "entry":0.0,
-    "sl":0.0,
-    "target":0.0,
-    "exit":0.0,
-    "decision":"—",
-    "score":0
-}
-
-for k,v in defaults.items():
-    if k not in st.session_state:
-        st.session_state[k]=v
+mode = st.radio("Mode", ["Range", "Breakout", "Opening"], horizontal=True)
 
 #━━━━━━━━━━━━━━━━━━━
-# TOP BAR
+# RANGE SETUP
 #━━━━━━━━━━━━━━━━━━━
-st.markdown('<div class="top-bar">', unsafe_allow_html=True)
+range_setups = []
+touch_count = 0
 
-c1,c2,c3 = st.columns([2,2,1])
+if mode == "Range":
+    st.subheader("Range Setup")
 
-with c1:
-    st.radio("TSL",["Yes","No"],horizontal=True,key="tsl")
-
-with c2:
-    st.radio("Mode",["Range","Breakout","Opening"],horizontal=True,key="mode")
-
-with c3:
-    d = st.session_state.decision
-    s = st.session_state.score
-    color = "green" if d=="STRONG" else "yellow" if d=="MODERATE" else "red"
-
-    st.markdown(f"""
-    <div class="summary-box">
-    <div class="{color}">{d}</div>
-    <div>Score: {s}</div>
-    </div>
-    """, unsafe_allow_html=True)
-
-st.markdown('</div>', unsafe_allow_html=True)
-
-mode = st.session_state.mode
+    cons = st.selectbox("Consolidation", ["No","Yes","1T","2T","3T"])
+    bb = st.selectbox("Bollinger", ["No","Yes"])
+    retr = st.selectbox("Retracement", ["No","0.6","0.78"])
 
 #━━━━━━━━━━━━━━━━━━━
-# INPUTS
+# BREAKOUT SETUP
 #━━━━━━━━━━━━━━━━━━━
-st.markdown("---")
+if mode == "Breakout":
+    st.subheader("Breakout Setup")
 
-if mode=="Range":
-    st.selectbox("Cons",["No","Yes","1T","2T","3T"],key="cons")
-    st.selectbox("BB",["Yes","No"],key="bb")
-    st.selectbox("Ret",["No","0.6","0.78"],key="retr")
-
-elif mode=="Breakout":
-    st.selectbox("Trendline",["No","Yes"],key="tl")
-    st.selectbox("Squeeze",["Yes","No"],key="sq")
-    st.selectbox("HTF",["Above 0.786","Below 0.214","Neutral"],key="htf")
-
-else:
-    st.selectbox("Prev",["Buy","Sell"],key="prev")
-    st.selectbox("Gap",["Up","Down","None"],key="gap")
+    tl = st.selectbox("Trendline Break", ["No","Yes"])
+    sq = st.selectbox("Squeeze", ["No","Yes"])
+    htf_position = st.selectbox(
+        "HTF Position",
+        ["Neutral","Above 0.786","Below 0.214"]
+    )
 
 #━━━━━━━━━━━━━━━━━━━
-# SCORING (PURE)
+# OPENING SETUP
 #━━━━━━━━━━━━━━━━━━━
-if st.session_state.tsl == "No":
+if mode == "Opening":
+    st.subheader("Opening Setup")
+
+    prev_break = st.checkbox("Prev Day Trendline Break")
+
+    break_dir = st.radio(
+        "Break Direction",
+        ["Buy","Sell"],
+        horizontal=True
+    )
+
+    gap_type = st.radio(
+        "Gap Type",
+        ["Up","Down","None"],
+        horizontal=True
+    )
+
+#━━━━━━━━━━━━━━━━━━━
+# TRADE INPUTS
+#━━━━━━━━━━━━━━━━━━━
+st.subheader("Trade Levels")
+
+entry = st.number_input("Entry", value=0.0)
+stop = st.number_input("Stop Loss", value=0.0)
+target = st.number_input("Final Target", value=0.0)
+
+nearest_target = st.number_input(
+    "Nearest Structure Target",
+    value=0.0
+)
+
+view = st.text_area("Your View (optional)")
+
+#━━━━━━━━━━━━━━━━━━━
+# EVALUATION FUNCTION
+#━━━━━━━━━━━━━━━━━━━
+def evaluate():
+
     score = 0
-    decision = "NO TRADE"
+    reasons = []
 
-else:
-    if mode=="Range":
-        score = (
-            {"No":0,"Yes":1,"1T":1,"2T":2,"3T":3}[st.session_state.cons]
-            + {"No":0,"Yes":1}[st.session_state.bb]
-            + {"No":0,"0.6":1,"0.78":2}[st.session_state.retr]
-        )
+    # TSL filter
+    if mode in ["Range","Breakout"]:
+        if not tsl_flip:
+            return "❌ REJECTED", ["No TSL Flip"], 0, 0
+        reasons.append("✔ TSL Flip")
 
-    elif mode=="Breakout":
-        score = (
-            {"No":0,"Yes":2}[st.session_state.tl]
-            + {"No":0,"Yes":2}[st.session_state.sq]
-            + {"Neutral":0,"Above 0.786":1,"Below 0.214":1}[st.session_state.htf]
-        )
+    if mode == "Opening":
+        reasons.append("✔ Opening Mode")
 
-    else:
-        score = {
+    #━━━━━━━━ RANGE
+    if mode == "Range":
+
+        score += {"No":0,"Yes":1,"1T":1,"2T":2,"3T":3}[cons]
+        score += {"No":0,"Yes":1}[bb]
+        score += {"No":0,"0.6":1,"0.78":2}[retr]
+
+    #━━━━━━━━ BREAKOUT
+    if mode == "Breakout":
+
+        score += {"No":0,"Yes":2}[tl]
+        score += {"No":0,"Yes":2}[sq]
+        score += {"Neutral":0,"Above 0.786":1,"Below 0.214":1}[htf_position]
+
+    #━━━━━━━━ OPENING
+    if mode == "Opening":
+
+        if not prev_break:
+            return "❌ REJECTED", ["No prior break"], 0, 0
+
+        score += {
             ("Buy","Up"):3,
             ("Buy","Down"):2,
             ("Sell","Down"):3,
             ("Sell","Up"):2
-        }.get((st.session_state.prev, st.session_state.gap),0)
+        }.get((break_dir, gap_type), 0)
 
-    decision = "STRONG" if score>=6 else "MODERATE" if score>=3 else "NO TRADE"
+    #━━━━━━━━ RR
+    risk = abs(entry - stop)
+    reward = abs(target - entry)
+    rr = reward / risk if risk != 0 else 0
 
-st.session_state.score = score
-st.session_state.decision = decision
-
-#━━━━━━━━━━━━━━━━━━━
-# RESULT
-#━━━━━━━━━━━━━━━━━━━
-e = st.session_state.entry
-s = st.session_state.sl
-x = st.session_state.exit
-
-status=""
-pnl=0
-
-if e and s and x:
-    if e>s:
-        status="LOSS" if x<=s else "WIN" if x>e else "BE"
-        pnl=(x-e) if status=="WIN" else (s-e)
+    if rr >= 2:
+        score += 2
+        reasons.append("✔ Good RR")
+    elif rr >= 1.5:
+        score += 1
+        reasons.append("⚠ Moderate RR")
     else:
-        status="LOSS" if x>=s else "WIN" if x<e else "BE"
-        pnl=(e-x) if status=="WIN" else (e-s)
+        reasons.append("❌ Poor RR")
 
-if status:
-    st.write(f"{status} | {round(pnl,2)}")
+    #━━━━━━━━ STRUCTURE
+    structure_dist = abs(nearest_target - entry)
+
+    if structure_dist < risk * 1.2:
+        score -= 3
+        reasons.append("❌ No room")
+    elif structure_dist < risk * 1.8:
+        score -= 1
+        reasons.append("⚠ Tight")
+    else:
+        score += 1
+        reasons.append("✔ Space")
+
+    #━━━━━━━━ FINAL
+    if score >= 7:
+        decision = "🔥 STRONG"
+    elif score >= 4:
+        decision = "⚠ MODERATE"
+    else:
+        decision = "❌ WEAK"
+
+    return decision, reasons, rr, score
+
+#━━━━━━━━━━━━━━━━━━━
+# EXECUTE (BUTTON BASED - STABLE)
+#━━━━━━━━━━━━━━━━━━━
+if st.button("🚀 Evaluate Trade", use_container_width=True):
+
+    decision, reasons, rr, score = evaluate()
+
+    st.markdown(f"## {decision}")
+    st.write(f"Score: {score} | RR: {round(rr,2)}")
+
+    for r in reasons:
+        st.write(r)
+
+    follow = st.radio("Follow?", ["Yes", "No"], horizontal=True)
+
+    log = {
+        "Time": datetime.now(),
+        "Mode": mode,
+        "Decision": decision,
+        "Score": score,
+        "RR": rr,
+        "Followed": follow
+    }
+
+    df = pd.DataFrame([log])
+
+    try:
+        old = pd.read_csv("log.csv")
+        df = pd.concat([old, df])
+    except:
+        pass
+
+    df.to_csv("log.csv", index=False)
+
+    st.success("Trade saved!")
+
+#━━━━━━━━━━━━━━━━━━━
+# STATS
+#━━━━━━━━━━━━━━━━━━━
+st.subheader("📈 Stats")
+
+try:
+    log = pd.read_csv("log.csv")
+    st.write("Total Trades:", len(log))
+    st.write("Follow Rate:", round((log["Followed"] == "Yes").mean(), 2))
+except:
+    st.write("No data yet")
