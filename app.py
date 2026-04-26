@@ -3,9 +3,27 @@ import pandas as pd
 from datetime import datetime
 
 #━━━━━━━━━━━━━━━━━━━
-# PAGE CONFIG (IMPORTANT)
+# PAGE CONFIG
 #━━━━━━━━━━━━━━━━━━━
-st.set_page_config(layout="wide")   # 🔥 THIS FIXES MOBILE COLUMN SQUEEZE
+st.set_page_config(layout="wide")
+
+#━━━━━━━━━━━━━━━━━━━
+# 🔥 COMPACT UI (REMOVE EXTRA SPACE)
+#━━━━━━━━━━━━━━━━━━━
+st.markdown("""
+<style>
+.block-container {
+    padding-top: 0.4rem;
+    padding-bottom: 0rem;
+}
+div[data-testid="stVerticalBlock"] > div {
+    gap: 0.3rem;
+}
+label {
+    font-size: 0.8rem !important;
+}
+</style>
+""", unsafe_allow_html=True)
 
 #━━━━━━━━━━━━━━━━━━━
 # SESSION
@@ -16,9 +34,9 @@ if "score" not in st.session_state:
     st.session_state.score = 0
 
 #━━━━━━━━━━━━━━━━━━━
-# TOP 3 COLUMN (BALANCED WIDTH)
+# TOP 3 COLUMN (BALANCED)
 #━━━━━━━━━━━━━━━━━━━
-colL, colM, colR = st.columns([1.2,1,1.2])  # 🔥 better than equal split
+colL, colM, colR = st.columns([1.2,1,1.2])
 
 # LEFT
 with colL:
@@ -31,7 +49,7 @@ with colL:
 # RIGHT
 with colR:
     sim_mode = st.checkbox("Sim Mode", True)
-    review = st.text_area("Note", height=120)
+    review = st.text_area("Note", height=80)
 
 file_name = "simulation_trades.csv" if sim_mode else "live_trades.csv"
 
@@ -58,7 +76,7 @@ else:
     gap = c2.selectbox("Gap", ["Up","Down","None"])
 
 #━━━━━━━━━━━━━━━━━━━
-# ENTRY ROW
+# ENTRY ROW (COMPACT)
 #━━━━━━━━━━━━━━━━━━━
 c1, c2, c3 = st.columns(3)
 
@@ -69,7 +87,7 @@ target = c3.number_input("Target")
 exit_price = st.number_input("Exit")
 
 #━━━━━━━━━━━━━━━━━━━
-# AUTO EVAL
+# AUTO EVALUATION
 #━━━━━━━━━━━━━━━━━━━
 score = 0
 
@@ -113,12 +131,11 @@ else:
     st.session_state.decision = "NO TRADE"
 
 #━━━━━━━━━━━━━━━━━━━
-# SUMMARY (CENTER COLUMN)
+# SUMMARY (INLINE COMPACT)
 #━━━━━━━━━━━━━━━━━━━
 with colM:
-    st.markdown("**Summary**")
-    st.markdown(f"**{st.session_state.decision}**")
-    st.caption(f"Score: {st.session_state.score}")
+    st.caption("Summary")
+    st.markdown(f"**{st.session_state.decision} | Score: {st.session_state.score}**")
 
     if entry and sl and target and entry != sl:
         rr = abs(target - entry) / abs(entry - sl)
@@ -152,7 +169,7 @@ if entry and sl and target and exit_price:
             status = "BREAKEVEN"
 
 if status:
-    st.write(f"{status} | PnL: {round(pnl,2)}")
+    st.write(f"{status} | {round(pnl,2)}")
 
 #━━━━━━━━━━━━━━━━━━━
 # SAVE
@@ -185,11 +202,9 @@ if st.button("Save"):
     st.success("Saved")
 
 #━━━━━━━━━━━━━━━━━━━
-# DASHBOARD
+# DASHBOARD (COMPACT)
 #━━━━━━━━━━━━━━━━━━━
-st.markdown("---")
-
-mode_view = st.selectbox("Data View", ["Simulation", "Live"])
+mode_view = st.selectbox("Data", ["Simulation", "Live"])
 file_name_view = "simulation_trades.csv" if mode_view == "Simulation" else "live_trades.csv"
 
 try:
@@ -201,7 +216,7 @@ try:
 
     win_rate = (wins / closed * 100) if closed > 0 else 0
 
-    st.write(f"Trades: {len(df)} | Win%: {round(win_rate,1)}")
+    st.caption(f"Trades: {len(df)} | Win%: {round(win_rate,1)}")
 
     summary = df.groupby("Decision").agg(
         Trades=("Decision", "count"),
@@ -209,7 +224,7 @@ try:
         WinRate=("Status", lambda x: (x == "WIN").sum()/len(x)*100)
     )
 
-    st.dataframe(summary)
+    st.dataframe(summary, use_container_width=True)
 
 except:
-    st.caption("No data yet")
+    st.caption("No data")
