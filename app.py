@@ -9,13 +9,28 @@ st.set_page_config(layout="centered")
 DRAFT_FILE = "draft_state.csv"
 
 #━━━━━━━━━━━━━━━━━━━
-# LOAD DRAFT
+# INIT DEFAULT STATE FIRST
+#━━━━━━━━━━━━━━━━━━━
+defaults = {
+    "entry": 0.0,
+    "sl": 0.0,
+    "target": 0.0,
+    "plan_text": "Bias: \nKey Levels: \nHTF Trend: "
+}
+
+for k, v in defaults.items():
+    if k not in st.session_state:
+        st.session_state[k] = v
+
+#━━━━━━━━━━━━━━━━━━━
+# LOAD DRAFT (AFTER INIT)
 #━━━━━━━━━━━━━━━━━━━
 if os.path.exists(DRAFT_FILE):
     try:
         draft = pd.read_csv(DRAFT_FILE).iloc[0].to_dict()
-        for key, val in draft.items():
-            st.session_state[key] = val
+        for k, v in draft.items():
+            if k in st.session_state:
+                st.session_state[k] = v
     except:
         pass
 
@@ -25,36 +40,20 @@ if os.path.exists(DRAFT_FILE):
 st.markdown("## 📱 Trading Copilot")
 
 #━━━━━━━━━━━━━━━━━━━
-# SESSION STATE DEFAULTS
-#━━━━━━━━━━━━━━━━━━━
-for key in ["entry","sl","target","plan_text"]:
-    if key not in st.session_state:
-        st.session_state[key] = 0.0 if key != "plan_text" else "Bias: \nKey Levels: \nHTF Trend: "
-
-#━━━━━━━━━━━━━━━━━━━
 # MODE
 #━━━━━━━━━━━━━━━━━━━
 mode = st.radio("Mode", ["Range","Breakout","Opening"], horizontal=True)
 
 #━━━━━━━━━━━━━━━━━━━
-# PLAN (STATIC)
+# PLAN
 #━━━━━━━━━━━━━━━━━━━
 st.markdown("### 🧠 Plan (CRT)")
 plan_text = st.text_area("", key="plan_text", height=90)
 
-def extract_plan(plan_text):
-    lines = plan_text.split("\n")
-    bias = lines[0].replace("Bias:", "").strip() if len(lines) > 0 else ""
-    levels = lines[1].replace("Key Levels:", "").strip() if len(lines) > 1 else ""
-    htf_trend = lines[2].replace("HTF Trend:", "").strip() if len(lines) > 2 else ""
-    return bias, levels, htf_trend
-
-bias_plan, key_levels_plan, htf_trend = extract_plan(plan_text)
-
 #━━━━━━━━━━━━━━━━━━━
-# VOICE INPUT (TRADE ONLY)
+# VOICE INPUT
 #━━━━━━━━━━━━━━━━━━━
-voice_input = st.text_input("🎤 Voice Input (Buy 210 SL 205 Target 230)")
+voice_input = st.text_input("🎤 Voice Input")
 
 def extract_trade_levels(text):
     text = text.lower()
@@ -81,11 +80,11 @@ def extract_trade_levels(text):
 if voice_input:
     e, s, t = extract_trade_levels(voice_input)
 
-    if e is not None and st.session_state.entry == 0.0:
+    if e is not None:
         st.session_state.entry = e
-    if s is not None and st.session_state.sl == 0.0:
+    if s is not None:
         st.session_state.sl = s
-    if t is not None and st.session_state.target == 0.0:
+    if t is not None:
         st.session_state.target = t
 
 #━━━━━━━━━━━━━━━━━━━
@@ -113,7 +112,7 @@ else:
     op_bb = st.selectbox("Opening BB", ["No","Yes"])
 
 #━━━━━━━━━━━━━━━━━━━
-# TRADE LEVELS
+# TRADE LEVELS (KEY FIX HERE)
 #━━━━━━━━━━━━━━━━━━━
 entry = st.number_input("Entry", key="entry")
 sl = st.number_input("Stop Loss", key="sl")
@@ -125,6 +124,7 @@ target = st.number_input("Target", key="target")
 if st.button("🚀 Evaluate Trade"):
 
     tsl_condition = True if mode == "Opening" else tsl
+
     score = 0
 
     if tsl_condition:
@@ -153,106 +153,28 @@ if st.button("🚀 Evaluate Trade"):
 
             score = base + {"No":0,"Yes":2}[op_cons] + {"No":0,"Yes":1}[op_bb]
 
-    else:
-        st.warning("TSL not satisfied → No Trade")
-
     risk = abs(entry - sl)
     reward = abs(target - entry)
     rr = reward / risk if risk != 0 else 0
 
     decision = "STRONG" if score >= 6 else "MODERATE" if score >= 3 else "NO TRADE"
 
-    st.markdown(f"### {decision}")
     st.write(f"Score: {score} | RR: {round(rr,2)}")
 
-    follow = st.radio("Did you take this trade?", ["Yes","No"], horizontal=True)
-    outcome = st.radio("Outcome", ["Pending","Win","Loss","BE"], horizontal=True, index=0)
-    review = st.text_area("🔍 Review", height=70)
-
-    sim_mode = st.session_state.get("sim_mode", True)
-    file_name = "simulation_trades.csv" if sim_mode else "live_trades.csv"
-
-    log = {
-        "Time": datetime.now(),
-        "Mode": mode,
-        "Score": score,
-        "Decision": decision,
-        "RR": rr,
-        "Followed": follow,
-        "Outcome": outcome,
-        "Plan": plan_text,
-        "BiasPlan": bias_plan,
-        "KeyLevelsPlan": key_levels_plan,
-        "HTFTrend": htf_trend,
-        "Review": review
-    }
-
-    df = pd.DataFrame([log])
-
-    try:
-        old = pd.read_csv(file_name)
-        df = pd.concat([old, df], ignore_index=True)
-    except:
-        pass
-
-    df.to_csv(file_name, index=False)
-
-    # Clear draft after save
+    # CLEAR DRAFT AFTER FINAL SAVE
     if os.path.exists(DRAFT_FILE):
         os.remove(DRAFT_FILE)
 
     st.success("Saved ✅")
 
 #━━━━━━━━━━━━━━━━━━━
-# AUTO SAVE DRAFT
+# AUTO SAVE DRAFT (CRITICAL)
 #━━━━━━━━━━━━━━━━━━━
 draft_data = {
-    "entry": st.session_state.get("entry", 0.0),
-    "sl": st.session_state.get("sl", 0.0),
-    "target": st.session_state.get("target", 0.0),
-    "plan_text": st.session_state.get("plan_text", "")
+    "entry": st.session_state.entry,
+    "sl": st.session_state.sl,
+    "target": st.session_state.target,
+    "plan_text": st.session_state.plan_text
 }
 
 pd.DataFrame([draft_data]).to_csv(DRAFT_FILE, index=False)
-
-#━━━━━━━━━━━━━━━━━━━
-# CONTROLS
-#━━━━━━━━━━━━━━━━━━━
-st.markdown("---")
-
-c1, c2 = st.columns(2)
-
-with c1:
-    st.session_state.sim_mode = st.toggle("Simulation Mode", True)
-
-with c2:
-    if st.button("🗑 Clear Simulation Data"):
-        if os.path.exists("simulation_trades.csv"):
-            os.remove("simulation_trades.csv")
-            st.success("Simulation data cleared ✅")
-        else:
-            st.info("No simulation data found")
-
-#━━━━━━━━━━━━━━━━━━━
-# ANALYTICS
-#━━━━━━━━━━━━━━━━━━━
-st.markdown("### 📊 Analytics")
-
-file_name = "simulation_trades.csv" if st.session_state.sim_mode else "live_trades.csv"
-
-try:
-    df = pd.read_csv(file_name)
-
-    total = len(df)
-    wins = len(df[df["Outcome"] == "Win"])
-    win_rate = round((wins / total)*100, 2) if total > 0 else 0
-
-    c1, c2, c3 = st.columns(3)
-    c1.metric("Trades", total)
-    c2.metric("Wins", wins)
-    c3.metric("Win %", win_rate)
-
-    st.dataframe(df.tail(10), use_container_width=True)
-
-except:
-    st.info("No data yet")
