@@ -5,44 +5,29 @@ from datetime import datetime
 st.set_page_config(layout="wide")
 
 #━━━━━━━━━━━━━━━━━━━
-# 🎨 FINAL POLISHED STYLE
+# 🎨 STYLE
 #━━━━━━━━━━━━━━━━━━━
 st.markdown("""
 <style>
-
-/* Hide default header */
 header {visibility: hidden;}
 
-/* 🔥 PERFECT TOP ALIGNMENT */
 .block-container {
     padding-top: 0.8rem;
     padding-bottom: 0rem;
 }
 
-/* Remove extra vertical gaps globally */
-div[data-testid="stVerticalBlock"] > div {
-    gap: 0.4rem;
-}
-
-/* 🔥 STICKY TOP BAR */
 .top-bar {
     position: fixed;
     top: 0;
     left: 0;
     right: 0;
-
     background: #111827;
-
     z-index: 999;
-
     padding: 8px 12px;
-
     border-bottom: 1px solid #2f3542;
-
     box-shadow: 0px 3px 10px rgba(0,0,0,0.35);
 }
 
-/* Card panel */
 .card {
     background-color: #111827;
     padding: 10px;
@@ -50,7 +35,6 @@ div[data-testid="stVerticalBlock"] > div {
     border: 1px solid #2a2f3a;
 }
 
-/* Summary box */
 .summary-box {
     padding: 6px;
     border-radius: 6px;
@@ -58,13 +42,11 @@ div[data-testid="stVerticalBlock"] > div {
     border: 1px solid #333;
 }
 
-/* Colors */
 .green {color:#00ff88;}
 .yellow {color:#ffaa00;}
 .red {color:#ff4d4d;}
 
 .small {font-size: 0.72rem;}
-
 </style>
 """, unsafe_allow_html=True)
 
@@ -117,7 +99,6 @@ with c3:
 with c4:
     decision = st.session_state.decision
     score = st.session_state.score
-
     color = "green" if decision=="STRONG" else "yellow" if decision=="MODERATE" else "red"
 
     st.markdown(f"""
@@ -238,7 +219,7 @@ if status:
     st.write(f"{status} | {round(pnl,2)}")
 
 #━━━━━━━━━━━━━━━━━━━
-# SAVE + RESET
+# SAVE
 #━━━━━━━━━━━━━━━━━━━
 if st.button("SAVE TRADE"):
 
@@ -267,13 +248,14 @@ if st.button("SAVE TRADE"):
     df.to_csv(file_name, index=False)
 
     st.success("Saved ✅")
-
     reset_inputs()
 
 #━━━━━━━━━━━━━━━━━━━
-# ANALYTICS
+# ANALYTICS + DATA CONTROL
 #━━━━━━━━━━━━━━━━━━━
 st.markdown("---")
+
+st.subheader("Analytics")
 
 try:
     df = pd.read_csv(file_name)
@@ -281,7 +263,6 @@ try:
     wins = len(df[df["Status"] == "WIN"])
     losses = len(df[df["Status"] == "LOSS"])
     closed = wins + losses
-
     win_rate = (wins / closed * 100) if closed else 0
 
     st.write(f"Trades: {len(df)} | Win%: {round(win_rate,1)}")
@@ -289,3 +270,22 @@ try:
 
 except:
     st.caption("No data yet")
+
+#━━━━━━━━━━━━━━━━━━━
+# 🗑 CLEAR DATA
+#━━━━━━━━━━━━━━━━━━━
+st.markdown("### Data Control")
+
+confirm = st.checkbox("Confirm clear simulation data")
+
+if confirm and st.button("🗑 Clear Simulation Data"):
+
+    df = pd.DataFrame(columns=[
+        "Time","Mode","Decision","Score",
+        "Entry","SL","Target","Exit",
+        "Status","PnL","Note"
+    ])
+
+    df.to_csv("simulation_trades.csv", index=False)
+
+    st.success("Simulation data cleared ✅")
