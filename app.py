@@ -5,7 +5,7 @@ from datetime import datetime
 st.set_page_config(layout="wide")
 
 #━━━━━━━━━━━━━━━━━━━
-# 🎨 STYLE (STABLE + COMPACT)
+# 🎨 STYLE (WRAP FIX ONLY)
 #━━━━━━━━━━━━━━━━━━━
 st.markdown("""
 <style>
@@ -13,7 +13,7 @@ st.markdown("""
 header {visibility: hidden;}
 
 .block-container {
-    padding-top: 0.6rem;
+    padding-top: 0.8rem;
 }
 
 /* TOP BAR */
@@ -24,19 +24,35 @@ header {visibility: hidden;}
     right: 0;
     background: #111827;
     z-index: 999;
-    padding: 8px 10px;
+    padding: 8px 12px;
     border-bottom: 1px solid #2f3542;
     box-shadow: 0px 3px 8px rgba(0,0,0,0.35);
 }
 
-/* BUTTON TABS */
-.tab-btn button {
-    width: 100%;
-    height: 40px;
-    border-radius: 6px;
+/* 🔥 WRAP FIXES */
+div[data-baseweb="select"] {
+    min-width: 0px !important;
 }
 
-/* CARD */
+div[role="radiogroup"] {
+    flex-wrap: nowrap !important;
+    gap: 4px !important;
+}
+
+div[data-testid="stHorizontalBlock"] {
+    gap: 0.3rem !important;
+}
+
+div[data-testid="column"] {
+    padding: 0px !important;
+}
+
+label {
+    margin-bottom: 0px !important;
+    font-size: 0.8rem !important;
+}
+
+/* PANEL */
 .card {
     background-color: #111827;
     padding: 10px;
@@ -44,7 +60,6 @@ header {visibility: hidden;}
     border: 1px solid #2a2f3a;
 }
 
-/* SUMMARY */
 .summary-box {
     padding: 6px;
     border-radius: 6px;
@@ -55,6 +70,8 @@ header {visibility: hidden;}
 .green {color:#00ff88;}
 .yellow {color:#ffaa00;}
 .red {color:#ff4d4d;}
+
+.small {font-size: 0.72rem;}
 
 </style>
 """, unsafe_allow_html=True)
@@ -91,37 +108,32 @@ def reset_inputs():
         st.session_state[k] = v
 
 #━━━━━━━━━━━━━━━━━━━
-# 🔝 TOP BAR (NO WRAP)
+# INLINE SELECT
+#━━━━━━━━━━━━━━━━━━━
+def inline_select(label, options, key):
+    c1, c2 = st.columns([1,2])
+    c1.markdown(f"**{label}**")
+    return c2.selectbox("", options, key=key, label_visibility="collapsed")
+
+#━━━━━━━━━━━━━━━━━━━
+# 🔝 TOP BAR (FIXED)
 #━━━━━━━━━━━━━━━━━━━
 st.markdown('<div class="top-bar">', unsafe_allow_html=True)
 
-c1, c2, c3 = st.columns([2.5,2,1.2])
+c1, c2, c3 = st.columns([2.3,1.7,1])
 
-# TSL + SIM
 with c1:
-    t1, t2, t3 = st.columns([1,1,1])
+    sub1, sub2 = st.columns([2.2,1])
 
-    if t1.button("TSL YES"):
-        st.session_state.tsl = "Yes"
-    if t2.button("TSL NO"):
-        st.session_state.tsl = "No"
+    with sub1:
+        tsl_flip = st.radio("TSL", ["Yes","No"], horizontal=True, key="tsl")
 
-    sim_mode = t3.toggle("Sim", True)
+    with sub2:
+        sim_mode = st.toggle("Sim", True)
 
-# MODE BUTTONS
 with c2:
-    m1, m2, m3 = st.columns(3)
+    mode = st.radio("Mode", ["Range","Breakout","Opening"], horizontal=True)
 
-    if m1.button("Range"):
-        st.session_state.mode = "Range"
-    if m2.button("Breakout"):
-        st.session_state.mode = "Breakout"
-    if m3.button("Opening"):
-        st.session_state.mode = "Opening"
-
-mode = st.session_state.mode
-
-# SUMMARY
 with c3:
     decision = st.session_state.decision
     score = st.session_state.score
@@ -131,7 +143,7 @@ with c3:
     st.markdown(f"""
     <div class="summary-box">
         <div class="{color}" style="font-size:14px;">{decision}</div>
-        <div style="font-size:11px;">Score: {score}</div>
+        <div class="small">Score: {score}</div>
     </div>
     """, unsafe_allow_html=True)
 
@@ -148,23 +160,23 @@ with left:
     st.markdown('<div class="card">', unsafe_allow_html=True)
 
     if mode == "Range":
-        cons = st.selectbox("Cons", ["No","Yes","2T","3T"])
-        bb = st.selectbox("BB", ["Yes","No"])
-        retr = st.selectbox("Ret", ["No","0.6","0.78"])
+        cons = inline_select("Cons", ["No","Yes","2T","3T"], "cons")
+        bb = inline_select("BB", ["Yes","No"], "bb")
+        retr = inline_select("Ret", ["No","0.6","0.78"], "retr")
 
     elif mode == "Breakout":
-        tl = st.selectbox("Trendline", ["No","Yes"])
-        sq = st.selectbox("Squeeze", ["Yes","No"])
-        htf = st.selectbox("HTF", ["Above 0.786","Below 0.214","Neutral"])
+        tl = inline_select("Trendline", ["No","Yes"], "tl")
+        sq = inline_select("Squeeze", ["Yes","No"], "sq")
+        htf = inline_select("HTF", ["Above 0.786","Below 0.214","Neutral"], "htf")
 
     else:
-        prev = st.selectbox("Prev", ["Buy","Sell"])
-        gap = st.selectbox("Gap", ["Up","Down","None"])
+        prev = inline_select("Prev", ["Buy","Sell"], "prev")
+        gap = inline_select("Gap", ["Up","Down","None"], "gap")
 
     st.markdown('</div>', unsafe_allow_html=True)
 
 with right:
-    note = st.text_area("Note", height=100)
+    note = st.text_area("Note", height=100, key="note")
 
 #━━━━━━━━━━━━━━━━━━━
 # ENTRY
@@ -172,10 +184,10 @@ with right:
 st.markdown("---")
 
 c1, c2, c3, c4 = st.columns(4)
-entry = c1.number_input("Entry")
-sl = c2.number_input("SL")
-target = c3.number_input("Target")
-exit_price = c4.number_input("Exit")
+entry = c1.number_input("Entry", key="entry")
+sl = c2.number_input("SL", key="sl")
+target = c3.number_input("Target", key="target")
+exit_price = c4.number_input("Exit", key="exit")
 
 #━━━━━━━━━━━━━━━━━━━
 # EVALUATION
