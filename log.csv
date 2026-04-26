@@ -1,0 +1,7 @@
+mode,type,decision,score,rr,view,time,Time,Mode,Decision,Score,TradeType,Entry,SL,Target,RR,Type,Review
+TSL,Range,NO TRADE,1.0,0.0,,2026-04-25 18:52:18.565888,,,,,,,,,,,
+,,,,,,,2026-04-25 20:18:16.640426,Range,REJECTED (No TSL),0.0,,,,,,,
+,,,,,,,2026-04-25 20:25:49.793929,,❌ WEAK,2.0,OPENING,100.0,80.0,150.0,2.5,,
+,,,,,,,2026-04-25 21:05:39.942869,,⚠ MODERATE,3.0,,,,,0.0,Opening,
+,,,,,,,2026-04-25 21:10:51.141725,,❌ NO TRADE,1.0,,,,,0.0,TSL,
+,,,,,,,2026-04-26 08:39:49.268150,,🔥 STRONG,6.0,,,,,1.0,TSL,
