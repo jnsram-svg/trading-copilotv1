@@ -5,7 +5,7 @@ from datetime import datetime
 st.set_page_config(layout="wide")
 
 #━━━━━━━━━━━━━━━━━━━
-# SESSION STATE
+# STATE
 #━━━━━━━━━━━━━━━━━━━
 if "score" not in st.session_state:
     st.session_state.score = 0
@@ -13,9 +13,9 @@ if "decision" not in st.session_state:
     st.session_state.decision = "—"
 
 #━━━━━━━━━━━━━━━━━━━
-# TOP BAR (UNCHANGED V2 STYLE)
+# TOP BAR (UNCHANGED)
 #━━━━━━━━━━━━━━━━━━━
-c1, c2, c3 = st.columns([2,2,1])
+c1, c2, c3, c4 = st.columns([2,2,1,1])
 
 with c1:
     st.radio("TSL", ["Yes","No"], horizontal=True, key="tsl")
@@ -24,15 +24,16 @@ with c2:
     st.radio("Mode", ["Range","Breakout","Opening"], horizontal=True, key="mode")
 
 with c3:
-    d = st.session_state.decision
-    s = st.session_state.score
-    st.markdown(f"### {d}")
-    st.caption(f"Score: {s}")
+    st.markdown(f"**{st.session_state.decision}**")
+    st.caption(f"Score: {st.session_state.score}")
+
+with c4:
+    evaluate_clicked = st.button("⚡")
 
 mode = st.session_state.mode
 
 #━━━━━━━━━━━━━━━━━━━
-# INPUT PANEL (V2 STRUCTURE)
+# INPUTS (UNCHANGED)
 #━━━━━━━━━━━━━━━━━━━
 if mode == "Range":
     st.selectbox("Cons", ["No","Yes","1T","2T","3T"], key="cons")
@@ -51,8 +52,6 @@ else:
 #━━━━━━━━━━━━━━━━━━━
 # TRADE INPUTS (UNCHANGED)
 #━━━━━━━━━━━━━━━━━━━
-st.markdown("---")
-
 c1, c2, c3, c4 = st.columns(4)
 st.number_input("Entry", key="entry")
 st.number_input("SL", key="sl")
@@ -62,60 +61,46 @@ st.number_input("Exit", key="exit")
 st.text_area("Notes", key="note")
 
 #━━━━━━━━━━━━━━━━━━━
-# 🔥 V1 SCORING LOGIC (ONLY FUNCTION)
+# 🔥 SCORING (ONLY TRIGGERED HERE)
 #━━━━━━━━━━━━━━━━━━━
-def calculate_score():
+if evaluate_clicked:
 
     score = 0
 
     if st.session_state.tsl == "No":
-        return 0, "NO TRADE"
-
-    mode = st.session_state.mode
-
-    if mode == "Range":
-        score = (
-            {"No":0,"Yes":1,"1T":1,"2T":2,"3T":3}[st.session_state.cons]
-            + {"No":0,"Yes":1}[st.session_state.bb]
-            + {"No":0,"0.6":1,"0.78":2}[st.session_state.retr]
-        )
-
-    elif mode == "Breakout":
-        score = (
-            {"No":0,"Yes":2}[st.session_state.tl]
-            + {"No":0,"Yes":2}[st.session_state.sq]
-            + {"Neutral":0,"Above 0.786":1,"Below 0.214":1}[st.session_state.htf]
-        )
+        decision = "NO TRADE"
 
     else:
-        score = {
-            ("Buy","Up"):3,
-            ("Buy","Down"):2,
-            ("Sell","Down"):3,
-            ("Sell","Up"):2
-        }.get((st.session_state.prev, st.session_state.gap), 0)
+        if mode == "Range":
+            score = (
+                {"No":0,"Yes":1,"1T":1,"2T":2,"3T":3}[st.session_state.cons]
+                + {"No":0,"Yes":1}[st.session_state.bb]
+                + {"No":0,"0.6":1,"0.78":2}[st.session_state.retr]
+            )
 
-    decision = "STRONG" if score >= 6 else "MODERATE" if score >= 3 else "NO TRADE"
+        elif mode == "Breakout":
+            score = (
+                {"No":0,"Yes":2}[st.session_state.tl]
+                + {"No":0,"Yes":2}[st.session_state.sq]
+                + {"Neutral":0,"Above 0.786":1,"Below 0.214":1}[st.session_state.htf]
+            )
 
-    return score, decision
+        else:
+            score = {
+                ("Buy","Up"):3,
+                ("Buy","Down"):2,
+                ("Sell","Down"):3,
+                ("Sell","Up"):2
+            }.get((st.session_state.prev, st.session_state.gap), 0)
 
-#━━━━━━━━━━━━━━━━━━━
-# 🔥 EVALUATE BUTTON (ONLY CHANGE)
-#━━━━━━━━━━━━━━━━━━━
-st.markdown("---")
-
-if st.button("⚡ Evaluate", use_container_width=True):
-
-    score, decision = calculate_score()
+        decision = "STRONG" if score >= 6 else "MODERATE" if score >= 3 else "NO TRADE"
 
     st.session_state.score = score
     st.session_state.decision = decision
 
 #━━━━━━━━━━━━━━━━━━━
-# SAVE (UNCHANGED LOGIC)
+# SAVE (UNCHANGED)
 #━━━━━━━━━━━━━━━━━━━
-st.markdown("---")
-
 sim_mode = st.toggle("Simulation Mode", True)
 file_name = "simulation_trades.csv" if sim_mode else "live_trades.csv"
 
@@ -148,18 +133,9 @@ if st.button("SAVE TRADE"):
 #━━━━━━━━━━━━━━━━━━━
 # ANALYTICS (UNCHANGED)
 #━━━━━━━━━━━━━━━━━━━
-st.markdown("---")
-
 try:
     df = pd.read_csv(file_name)
-
-    total = len(df)
-    strong = len(df[df["Decision"] == "STRONG"])
-
-    st.write(f"Trades: {total}")
-    st.write(f"Strong Trades: {strong}")
-
+    st.write(f"Trades: {len(df)}")
     st.dataframe(df.tail(10), use_container_width=True)
-
 except:
     st.caption("No data yet")
