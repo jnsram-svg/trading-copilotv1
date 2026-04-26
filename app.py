@@ -2,13 +2,21 @@ import streamlit as st
 import pandas as pd
 from datetime import datetime
 import os
+import re
 
 st.set_page_config(layout="centered")
 
 #━━━━━━━━━━━━━━━━━━━
-# MINIMAL HEADER
+# HEADER
 #━━━━━━━━━━━━━━━━━━━
 st.markdown("## 📱 Trading Copilot")
+
+#━━━━━━━━━━━━━━━━━━━
+# SESSION STATE (HYBRID INPUT CORE)
+#━━━━━━━━━━━━━━━━━━━
+for key in ["entry","sl","target"]:
+    if key not in st.session_state:
+        st.session_state[key] = 0.0
 
 #━━━━━━━━━━━━━━━━━━━
 # MODE
@@ -16,9 +24,60 @@ st.markdown("## 📱 Trading Copilot")
 mode = st.radio("Mode", ["Range","Breakout","Opening"], horizontal=True)
 
 #━━━━━━━━━━━━━━━━━━━
+# QUICK INPUT (VOICE/TEXT)
+#━━━━━━━━━━━━━━━━━━━
+quick_input = st.text_input(
+    "🎤 Quick Input (Voice/Text)",
+    placeholder="Buy 210 SL 205 Target 230"
+)
+
+#━━━━━━━━━━━━━━━━━━━
+# SMART PARSER
+#━━━━━━━━━━━━━━━━━━━
+def extract_trade_levels(text):
+    text = text.lower()
+
+    numbers = list(map(float, re.findall(r"\d+\.?\d*", text)))
+
+    entry = None
+    sl = None
+    target = None
+
+    sl_match = re.search(r"(sl|stop|stoploss)[^\d]*(\d+\.?\d*)", text)
+    if sl_match:
+        sl = float(sl_match.group(2))
+
+    tgt_match = re.search(r"(target|tgt|tp)[^\d]*(\d+\.?\d*)", text)
+    if tgt_match:
+        target = float(tgt_match.group(2))
+
+    used = {sl, target}
+    for n in numbers:
+        if n not in used:
+            entry = n
+            break
+
+    return entry, sl, target
+
+#━━━━━━━━━━━━━━━━━━━
+# APPLY PARSED VALUES (SAFE)
+#━━━━━━━━━━━━━━━━━━━
+if quick_input:
+    e, s, t = extract_trade_levels(quick_input)
+
+    if e is not None and st.session_state.entry == 0.0:
+        st.session_state.entry = e
+
+    if s is not None and st.session_state.sl == 0.0:
+        st.session_state.sl = s
+
+    if t is not None and st.session_state.target == 0.0:
+        st.session_state.target = t
+
+#━━━━━━━━━━━━━━━━━━━
 # PLAN
 #━━━━━━━━━━━━━━━━━━━
-plan = st.text_area("🧠 Plan (Why this trade?)", height=70)
+plan = st.text_area("🧠 Plan", height=70)
 
 #━━━━━━━━━━━━━━━━━━━
 # TSL
@@ -43,11 +102,17 @@ else:
     gap = st.selectbox("Gap", ["Up","Down","None"])
 
 #━━━━━━━━━━━━━━━━━━━
-# TRADE LEVELS
+# TRADE LEVELS (HYBRID INPUT)
 #━━━━━━━━━━━━━━━━━━━
-entry = st.number_input("Entry", value=0.0)
-sl = st.number_input("Stop Loss", value=0.0)
-target = st.number_input("Target", value=0.0)
+entry = st.number_input("Entry", key="entry")
+sl = st.number_input("Stop Loss", key="sl")
+target = st.number_input("Target", key="target")
+
+#━━━━━━━━━━━━━━━━━━━
+# SHOW DETECTED VALUES
+#━━━━━━━━━━━━━━━━━━━
+if quick_input:
+    st.caption(f"Detected → Entry: {entry}, SL: {sl}, Target: {target}")
 
 #━━━━━━━━━━━━━━━━━━━
 # EVALUATE
@@ -97,7 +162,7 @@ if st.button("🚀 Evaluate Trade"):
     outcome = st.radio("Outcome", ["Win","Loss","BE"], horizontal=True)
 
     #━━━━━━━━ REVIEW
-    review = st.text_area("🔍 Review (What happened?)", height=70)
+    review = st.text_area("🔍 Review", height=70)
 
     #━━━━━━━━ FILE MODE
     sim_mode = st.session_state.get("sim_mode", True)
@@ -128,7 +193,7 @@ if st.button("🚀 Evaluate Trade"):
     st.success("Saved ✅")
 
 #━━━━━━━━━━━━━━━━━━━
-# 🔻 BOTTOM CONTROL PANEL
+# BOTTOM CONTROLS
 #━━━━━━━━━━━━━━━━━━━
 st.markdown("---")
 
@@ -146,7 +211,7 @@ with c2:
             st.info("No simulation data found")
 
 #━━━━━━━━━━━━━━━━━━━
-# 📊 ANALYTICS
+# ANALYTICS
 #━━━━━━━━━━━━━━━━━━━
 st.markdown("### 📊 Analytics")
 
@@ -171,7 +236,7 @@ except:
     st.info("No data yet")
 
 #━━━━━━━━━━━━━━━━━━━
-# 📈 WIN RATE BY SCORE
+# WIN RATE BY SCORE
 #━━━━━━━━━━━━━━━━━━━
 st.markdown("### 📈 Win Rate by Score")
 
