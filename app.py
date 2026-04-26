@@ -16,52 +16,16 @@ st.markdown("## 📱 Trading Copilot")
 mode = st.radio("Mode", ["Range","Breakout","Opening"], horizontal=True)
 
 #━━━━━━━━━━━━━━━━━━━
-# 🧠 PLAN (VOICE + STRUCTURED)
+# 🧠 PLAN (CRT SINGLE BOX)
 #━━━━━━━━━━━━━━━━━━━
 st.markdown("### 🧠 Plan (CRT)")
 
-# Initialize plan once
-if "plan_text" not in st.session_state:
-    st.session_state.plan_text = "Bias: \nKey Levels: \nHTF Trend: "
-
-# Voice input
-voice_input = st.text_input(
-    "🎤 Voice Input (say: Bias…, Key Levels…, HTF…)",
-    placeholder="Bias buy / Key levels 210 205 / HTF uptrend"
+plan_text = st.text_area(
+    "",
+    value="Bias:\nKey Levels:\nHTF Trend:",
+    height=90
 )
 
-# Function to update plan safely
-def update_plan(plan_text, voice_input):
-    lines = plan_text.split("\n")
-
-    # ensure 3 lines exist
-    while len(lines) < 3:
-        lines.append("")
-
-    text = voice_input.lower()
-
-    if "bias" in text:
-        value = voice_input.lower().replace("bias", "").strip()
-        lines[0] = f"Bias: {value.capitalize()}"
-
-    elif "key" in text:
-        value = voice_input.lower().replace("key levels", "").replace("key", "").strip()
-        lines[1] = f"Key Levels: {value}"
-
-    elif "htf" in text:
-        value = voice_input.lower().replace("htf", "").strip()
-        lines[2] = f"HTF Trend: {value.capitalize()}"
-
-    return "\n".join(lines)
-
-# Apply voice update
-if voice_input:
-    st.session_state.plan_text = update_plan(st.session_state.plan_text, voice_input)
-
-# Plan box
-plan_text = st.text_area("", key="plan_text", height=90)
-
-# Extract structured values
 def extract_plan(plan_text):
     lines = plan_text.split("\n")
 
@@ -109,13 +73,14 @@ target = st.number_input("Target", value=0.0)
 #━━━━━━━━━━━━━━━━━━━
 if st.button("🚀 Evaluate Trade"):
 
+    # Opening does not require TSL
     tsl_condition = True if mode == "Opening" else tsl
 
     score = 0
 
     if tsl_condition:
 
-        # RANGE
+        #━━━━━━━━ RANGE (UPDATED)
         if mode == "Range":
             score = (
                 {"No":0,"1T":1,"2T":2,"3T":3}[cons] +
@@ -123,7 +88,7 @@ if st.button("🚀 Evaluate Trade"):
                 {"No":0,"0.6":1,"0.78":2}[retr]
             )
 
-        # BREAKOUT
+        #━━━━━━━━ BREAKOUT (UPDATED)
         elif mode == "Breakout":
             score = (
                 {"No":0,"Yes":2}[tl] +
@@ -131,7 +96,7 @@ if st.button("🚀 Evaluate Trade"):
                 {"Neutral":0,"Above 0.786":2,"Below 0.214":2}[htf]
             )
 
-        # OPENING
+        #━━━━━━━━ OPENING (UPDATED)
         else:
             base = {
                 ("Buy","Up"):3,
@@ -149,7 +114,7 @@ if st.button("🚀 Evaluate Trade"):
     else:
         st.warning("TSL not satisfied → No Trade")
 
-    # RR
+    #━━━━━━━━ RR
     risk = abs(entry - sl)
     reward = abs(target - entry)
     rr = reward / risk if risk != 0 else 0
@@ -241,6 +206,43 @@ try:
     c3.metric("Win %", win_rate)
 
     st.dataframe(df.tail(10), use_container_width=True)
+
+except:
+    st.info("No data yet")
+
+#━━━━━━━━━━━━━━━━━━━
+# WIN RATE BY SCORE
+#━━━━━━━━━━━━━━━━━━━
+st.markdown("### 📈 Win Rate by Score")
+
+try:
+    df = pd.read_csv(file_name)
+
+    if "Score" in df.columns and "Outcome" in df.columns:
+
+        score_stats = []
+
+        for s in sorted(df["Score"].dropna().unique()):
+            subset = df[df["Score"] == s]
+
+            total = len(subset)
+            wins = len(subset[subset["Outcome"] == "Win"])
+
+            win_rate = round((wins / total)*100, 2) if total > 0 else 0
+
+            score_stats.append({
+                "Score": s,
+                "Trades": total,
+                "Wins": wins,
+                "Win %": win_rate
+            })
+
+        score_df = pd.DataFrame(score_stats).sort_values(by="Score", ascending=False)
+
+        st.dataframe(score_df, use_container_width=True)
+
+    else:
+        st.info("Score/Outcome data not available yet")
 
 except:
     st.info("No data yet")
