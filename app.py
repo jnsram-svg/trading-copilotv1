@@ -6,7 +6,7 @@ import os
 st.set_page_config(layout="centered")
 
 #━━━━━━━━━━━━━━━━━━━
-# MINIMAL HEADER
+# HEADER
 #━━━━━━━━━━━━━━━━━━━
 st.markdown("## 📱 Trading Copilot")
 
@@ -26,17 +26,14 @@ plan_text = st.text_area(
     height=90
 )
 
-#━━━━━━━━━━━━━━━━━━━
-# OPTIONAL: EXTRACT STRUCTURE
-#━━━━━━━━━━━━━━━━━━━
 def extract_plan(plan_text):
     lines = plan_text.split("\n")
 
     bias = lines[0].replace("Bias:", "").strip() if len(lines) > 0 else ""
     levels = lines[1].replace("Key Levels:", "").strip() if len(lines) > 1 else ""
-    htf = lines[2].replace("HTF Trend:", "").strip() if len(lines) > 2 else ""
+    htf_trend = lines[2].replace("HTF Trend:", "").strip() if len(lines) > 2 else ""
 
-    return bias, levels, htf
+    return bias, levels, htf_trend
 
 bias_plan, key_levels_plan, htf_trend = extract_plan(plan_text)
 
@@ -49,7 +46,7 @@ tsl = st.checkbox("TSL Flip Required")
 # INPUTS
 #━━━━━━━━━━━━━━━━━━━
 if mode == "Range":
-    cons = st.selectbox("Cons", ["No","Yes","1T","2T","3T"])
+    cons = st.selectbox("Cons", ["No","1T","2T","3T"])
     bb = st.selectbox("BB", ["No","Yes"])
     retr = st.selectbox("Ret", ["No","0.6","0.78"])
 
@@ -61,6 +58,8 @@ elif mode == "Breakout":
 else:
     prev = st.selectbox("Prev", ["Buy","Sell"])
     gap = st.selectbox("Gap", ["Up","Down","None"])
+    op_cons = st.selectbox("Opening Consolidation", ["No","Yes"])
+    op_bb = st.selectbox("Opening BB", ["No","Yes"])
 
 #━━━━━━━━━━━━━━━━━━━
 # TRADE LEVELS
@@ -74,34 +73,48 @@ target = st.number_input("Target", value=0.0)
 #━━━━━━━━━━━━━━━━━━━
 if st.button("🚀 Evaluate Trade"):
 
+    # Opening does not require TSL
+    tsl_condition = True if mode == "Opening" else tsl
+
     score = 0
 
-    if tsl:
+    if tsl_condition:
+
+        #━━━━━━━━ RANGE (UPDATED)
         if mode == "Range":
             score = (
-                {"No":0,"Yes":1,"1T":1,"2T":2,"3T":3}[cons] +
-                {"No":0,"Yes":1}[bb] +
+                {"No":0,"1T":1,"2T":2,"3T":3}[cons] +
+                {"No":0,"Yes":2}[bb] +
                 {"No":0,"0.6":1,"0.78":2}[retr]
             )
 
+        #━━━━━━━━ BREAKOUT (UPDATED)
         elif mode == "Breakout":
             score = (
                 {"No":0,"Yes":2}[tl] +
                 {"No":0,"Yes":2}[sq] +
-                {"Neutral":0,"Above 0.786":1,"Below 0.214":1}[htf]
+                {"Neutral":0,"Above 0.786":2,"Below 0.214":2}[htf]
             )
 
+        #━━━━━━━━ OPENING (UPDATED)
         else:
-            score = {
+            base = {
                 ("Buy","Up"):3,
                 ("Buy","Down"):2,
                 ("Sell","Down"):3,
                 ("Sell","Up"):2
             }.get((prev, gap), 0)
+
+            score = (
+                base +
+                {"No":0,"Yes":2}[op_cons] +
+                {"No":0,"Yes":1}[op_bb]
+            )
+
     else:
         st.warning("TSL not satisfied → No Trade")
 
-    # RR
+    #━━━━━━━━ RR
     risk = abs(entry - sl)
     reward = abs(target - entry)
     rr = reward / risk if risk != 0 else 0
@@ -111,10 +124,14 @@ if st.button("🚀 Evaluate Trade"):
     st.markdown(f"### {decision}")
     st.write(f"Score: {score} | RR: {round(rr,2)}")
 
-    follow = st.radio("Follow Trade?", ["Yes","No"], horizontal=True)
+    follow = st.radio("Did you take this trade?", ["Yes","No"], horizontal=True)
 
-    # Outcome (important for analytics)
-    outcome = st.radio("Outcome", ["Win","Loss","BE"], horizontal=True)
+    outcome = st.radio(
+        "Outcome",
+        ["Pending","Win","Loss","BE"],
+        horizontal=True,
+        index=0
+    )
 
     review = st.text_area("🔍 Review", height=70)
 
@@ -130,7 +147,6 @@ if st.button("🚀 Evaluate Trade"):
         "Followed": follow,
         "Outcome": outcome,
 
-        # PLAN (single + structured)
         "Plan": plan_text,
         "BiasPlan": bias_plan,
         "KeyLevelsPlan": key_levels_plan,
