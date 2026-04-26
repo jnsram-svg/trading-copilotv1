@@ -5,6 +5,28 @@ from datetime import datetime
 st.set_page_config(layout="wide")
 
 #━━━━━━━━━━━━━━━━━━━
+# 🎨 STYLE (BIG SWITCH)
+#━━━━━━━━━━━━━━━━━━━
+st.markdown("""
+<style>
+header {visibility:hidden;}
+
+div[data-testid="stToggle"] {
+    border: 1px solid #333;
+    padding: 12px;
+    border-radius: 10px;
+    background-color: #111827;
+    margin-top: 6px;
+}
+
+div[data-testid="stToggle"] label p {
+    font-size: 18px !important;
+    font-weight: 600;
+}
+</style>
+""", unsafe_allow_html=True)
+
+#━━━━━━━━━━━━━━━━━━━
 # STATE
 #━━━━━━━━━━━━━━━━━━━
 if "score" not in st.session_state:
@@ -13,7 +35,7 @@ if "decision" not in st.session_state:
     st.session_state.decision = "—"
 
 #━━━━━━━━━━━━━━━━━━━
-# TOP BAR (UNCHANGED)
+# TOP BAR (UNCHANGED V2)
 #━━━━━━━━━━━━━━━━━━━
 c1, c2, c3, c4 = st.columns([2,2,1,1])
 
@@ -28,7 +50,7 @@ with c3:
     st.caption(f"Score: {st.session_state.score}")
 
 with c4:
-    evaluate_clicked = st.button("⚡")
+    evaluate_clicked = st.toggle("⚡ Evaluate", key="eval_toggle")
 
 mode = st.session_state.mode
 
@@ -61,7 +83,7 @@ st.number_input("Exit", key="exit")
 st.text_area("Notes", key="note")
 
 #━━━━━━━━━━━━━━━━━━━
-# 🔥 SCORING (ONLY TRIGGERED HERE)
+# 🔥 SCORING (ONLY WHEN TOGGLED)
 #━━━━━━━━━━━━━━━━━━━
 if evaluate_clicked:
 
@@ -97,6 +119,9 @@ if evaluate_clicked:
 
     st.session_state.score = score
     st.session_state.decision = decision
+
+    # reset toggle (important)
+    st.session_state.eval_toggle = False
 
 #━━━━━━━━━━━━━━━━━━━
 # SAVE (UNCHANGED)
@@ -135,7 +160,14 @@ if st.button("SAVE TRADE"):
 #━━━━━━━━━━━━━━━━━━━
 try:
     df = pd.read_csv(file_name)
-    st.write(f"Trades: {len(df)}")
+
+    total = len(df)
+    strong = len(df[df["Decision"] == "STRONG"])
+
+    st.write(f"Trades: {total}")
+    st.write(f"Strong Trades: {strong}")
+
     st.dataframe(df.tail(10), use_container_width=True)
+
 except:
     st.caption("No data yet")
