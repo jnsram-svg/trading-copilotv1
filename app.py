@@ -5,7 +5,7 @@ from datetime import datetime
 st.set_page_config(layout="wide")
 
 #━━━━━━━━━━━━━━━━━━━
-# STATE INIT
+# STATE
 #━━━━━━━━━━━━━━━━━━━
 if "score" not in st.session_state:
     st.session_state.score = 0
@@ -14,9 +14,9 @@ if "decision" not in st.session_state:
     st.session_state.decision = "—"
 
 #━━━━━━━━━━━━━━━━━━━
-# TOP BAR (V2)
+# TOP BAR
 #━━━━━━━━━━━━━━━━━━━
-c1, c2, c3, c4 = st.columns([2,2,1,1])
+c1, c2, c3 = st.columns([2,2,1])
 
 with c1:
     tsl = st.radio("TSL", ["Yes","No"], horizontal=True)
@@ -28,71 +28,62 @@ with c3:
     st.markdown(f"**{st.session_state.decision}**")
     st.caption(f"Score: {st.session_state.score}")
 
-with c4:
-    run = st.button("⚡ Evaluate")
+#━━━━━━━━━━━━━━━━━━━
+# 🔥 FORM (CRITICAL FIX)
+#━━━━━━━━━━━━━━━━━━━
+with st.form("trade_form"):
+
+    if mode == "Range":
+        cons = st.selectbox("Cons", ["No","Yes","1T","2T","3T"])
+        bb = st.selectbox("BB", ["No","Yes"])
+        retr = st.selectbox("Ret", ["No","0.6","0.78"])
+
+    elif mode == "Breakout":
+        tl = st.selectbox("Trendline", ["No","Yes"])
+        sq = st.selectbox("Squeeze", ["No","Yes"])
+        htf = st.selectbox("HTF", ["Neutral","Above 0.786","Below 0.214"])
+
+    else:
+        prev = st.selectbox("Prev", ["Buy","Sell"])
+        gap = st.selectbox("Gap", ["Up","Down","None"])
+
+    # Trade inputs
+    c1, c2, c3, c4 = st.columns(4)
+    entry = st.number_input("Entry")
+    sl = st.number_input("SL")
+    target = st.number_input("Target")
+    exit_price = st.number_input("Exit")
+
+    note = st.text_area("Notes")
+
+    # 🔥 SUBMIT BUTTON (THIS REPLACES EVALUATE)
+    submitted = st.form_submit_button("⚡ Evaluate")
 
 #━━━━━━━━━━━━━━━━━━━
-# INPUTS (LOCAL VARIABLES ONLY)
+# 🔥 SCORING (RUNS ONLY ON SUBMIT)
 #━━━━━━━━━━━━━━━━━━━
-if mode == "Range":
-
-    cons = st.selectbox("Cons", ["No","Yes","1T","2T","3T"])
-    bb = st.selectbox("BB", ["No","Yes"])
-    retr = st.selectbox("Ret", ["No","0.6","0.78"])
-
-elif mode == "Breakout":
-
-    tl = st.selectbox("Trendline", ["No","Yes"])
-    sq = st.selectbox("Squeeze", ["No","Yes"])
-    htf = st.selectbox("HTF", ["Neutral","Above 0.786","Below 0.214"])
-
-else:
-
-    prev = st.selectbox("Prev", ["Buy","Sell"])
-    gap = st.selectbox("Gap", ["Up","Down","None"])
-
-#━━━━━━━━━━━━━━━━━━━
-# TRADE INPUTS
-#━━━━━━━━━━━━━━━━━━━
-c1, c2, c3, c4 = st.columns(4)
-
-entry = st.number_input("Entry")
-sl = st.number_input("SL")
-target = st.number_input("Target")
-exit_price = st.number_input("Exit")
-
-note = st.text_area("Notes")
-
-#━━━━━━━━━━━━━━━━━━━
-# 🔥 CORRECT SCORING (PURE)
-#━━━━━━━━━━━━━━━━━━━
-if run:
-
-    # ALWAYS RESET
-    score = 0
+if submitted:
 
     if tsl == "No":
+        score = 0
         decision = "NO TRADE"
 
     else:
         if mode == "Range":
-
-            cons_map = {"No":0,"Yes":1,"1T":1,"2T":2,"3T":3}
-            bb_map = {"No":0,"Yes":1}
-            retr_map = {"No":0,"0.6":1,"0.78":2}
-
-            score = cons_map[cons] + bb_map[bb] + retr_map[retr]
+            score = (
+                {"No":0,"Yes":1,"1T":1,"2T":2,"3T":3}[cons] +
+                {"No":0,"Yes":1}[bb] +
+                {"No":0,"0.6":1,"0.78":2}[retr]
+            )
 
         elif mode == "Breakout":
-
-            tl_map = {"No":0,"Yes":2}
-            sq_map = {"No":0,"Yes":2}
-            htf_map = {"Neutral":0,"Above 0.786":1,"Below 0.214":1}
-
-            score = tl_map[tl] + sq_map[sq] + htf_map[htf]
+            score = (
+                {"No":0,"Yes":2}[tl] +
+                {"No":0,"Yes":2}[sq] +
+                {"Neutral":0,"Above 0.786":1,"Below 0.214":1}[htf]
+            )
 
         else:
-
             score = {
                 ("Buy","Up"):3,
                 ("Buy","Down"):2,
@@ -100,20 +91,13 @@ if run:
                 ("Sell","Up"):2
             }.get((prev, gap), 0)
 
-        # DECISION
-        if score >= 6:
-            decision = "STRONG"
-        elif score >= 3:
-            decision = "MODERATE"
-        else:
-            decision = "NO TRADE"
+        decision = "STRONG" if score >= 6 else "MODERATE" if score >= 3 else "NO TRADE"
 
-    # 🔥 OVERWRITE ONLY
     st.session_state.score = score
     st.session_state.decision = decision
 
 #━━━━━━━━━━━━━━━━━━━
-# SAVE
+# SAVE + ANALYTICS (UNCHANGED)
 #━━━━━━━━━━━━━━━━━━━
 sim_mode = st.toggle("Simulation Mode", True)
 file_name = "simulation_trades.csv" if sim_mode else "live_trades.csv"
@@ -144,14 +128,9 @@ if st.button("SAVE TRADE"):
 
     st.success("Saved ✅")
 
-#━━━━━━━━━━━━━━━━━━━
-# ANALYTICS
-#━━━━━━━━━━━━━━━━━━━
 try:
     df = pd.read_csv(file_name)
-
     st.write(f"Trades: {len(df)}")
     st.dataframe(df.tail(10), use_container_width=True)
-
 except:
     st.caption("No data yet")
