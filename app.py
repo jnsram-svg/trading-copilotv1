@@ -81,24 +81,36 @@ def reset_inputs():
         st.session_state[k] = v
 
 #━━━━━━━━━━━━━━━━━━━
-# 🔝 TOP BAR
+# INLINE SELECT HELPER
+#━━━━━━━━━━━━━━━━━━━
+def inline_select(label, options, key):
+    c1, c2 = st.columns([1,2])
+    c1.markdown(f"**{label}**")
+    return c2.selectbox("", options, key=key, label_visibility="collapsed")
+
+#━━━━━━━━━━━━━━━━━━━
+# 🔝 TOP BAR (COMPACT)
 #━━━━━━━━━━━━━━━━━━━
 st.markdown('<div class="top-bar">', unsafe_allow_html=True)
 
-c1, c2, c3, c4 = st.columns([1,2,1,1.2])
+c1, c2, c3 = st.columns([2,2,1.2])
 
 with c1:
-    tsl_flip = st.radio("TSL", ["Yes","No"], horizontal=True, key="tsl")
+    sub1, sub2 = st.columns([3,1])
+
+    with sub1:
+        tsl_flip = st.radio("TSL", ["Yes","No"], horizontal=True, key="tsl")
+
+    with sub2:
+        sim_mode = st.toggle("Sim", True)
 
 with c2:
     mode = st.radio("Mode", ["Range","Breakout","Opening"], horizontal=True)
 
 with c3:
-    sim_mode = st.toggle("Sim", True)
-
-with c4:
     decision = st.session_state.decision
     score = st.session_state.score
+
     color = "green" if decision=="STRONG" else "yellow" if decision=="MODERATE" else "red"
 
     st.markdown(f"""
@@ -121,18 +133,18 @@ with left:
     st.markdown('<div class="card">', unsafe_allow_html=True)
 
     if mode == "Range":
-        cons = st.selectbox("Cons", ["No","Yes","2T","3T"], key="cons")
-        bb = st.selectbox("BB", ["Yes","No"], key="bb")
-        retr = st.selectbox("Ret", ["No","0.6","0.78"], key="retr")
+        cons = inline_select("Cons", ["No","Yes","2T","3T"], "cons")
+        bb = inline_select("BB", ["Yes","No"], "bb")
+        retr = inline_select("Ret", ["No","0.6","0.78"], "retr")
 
     elif mode == "Breakout":
-        tl = st.selectbox("Trendline", ["No","Yes"], key="tl")
-        sq = st.selectbox("Squeeze", ["Yes","No"], key="sq")
-        htf = st.selectbox("HTF", ["Above 0.786","Below 0.214","Neutral"], key="htf")
+        tl = inline_select("Trendline", ["No","Yes"], "tl")
+        sq = inline_select("Squeeze", ["Yes","No"], "sq")
+        htf = inline_select("HTF", ["Above 0.786","Below 0.214","Neutral"], "htf")
 
     else:
-        prev = st.selectbox("Prev", ["Buy","Sell"], key="prev")
-        gap = st.selectbox("Gap", ["Up","Down","None"], key="gap")
+        prev = inline_select("Prev", ["Buy","Sell"], "prev")
+        gap = inline_select("Gap", ["Up","Down","None"], "gap")
 
     st.markdown('</div>', unsafe_allow_html=True)
 
@@ -140,17 +152,15 @@ with right:
     note = st.text_area("Note", height=110, key="note")
 
 #━━━━━━━━━━━━━━━━━━━
-# ENTRY
+# ENTRY (COMPACT)
 #━━━━━━━━━━━━━━━━━━━
 st.markdown("---")
 
-c1, c2 = st.columns(2)
+c1, c2, c3, c4 = st.columns(4)
 entry = c1.number_input("Entry", key="entry")
-target = c2.number_input("Target", key="target")
-
-c1, c2 = st.columns(2)
-sl = c1.number_input("SL", key="sl")
-exit_price = c2.number_input("Exit", key="exit")
+sl = c2.number_input("SL", key="sl")
+target = c3.number_input("Target", key="target")
+exit_price = c4.number_input("Exit", key="exit")
 
 #━━━━━━━━━━━━━━━━━━━
 # EVALUATION
@@ -251,11 +261,9 @@ if st.button("SAVE TRADE"):
     reset_inputs()
 
 #━━━━━━━━━━━━━━━━━━━
-# ANALYTICS + DATA CONTROL
+# ANALYTICS + CLEAR
 #━━━━━━━━━━━━━━━━━━━
 st.markdown("---")
-
-st.subheader("Analytics")
 
 try:
     df = pd.read_csv(file_name)
@@ -263,6 +271,7 @@ try:
     wins = len(df[df["Status"] == "WIN"])
     losses = len(df[df["Status"] == "LOSS"])
     closed = wins + losses
+
     win_rate = (wins / closed * 100) if closed else 0
 
     st.write(f"Trades: {len(df)} | Win%: {round(win_rate,1)}")
@@ -271,21 +280,14 @@ try:
 except:
     st.caption("No data yet")
 
-#━━━━━━━━━━━━━━━━━━━
-# 🗑 CLEAR DATA
-#━━━━━━━━━━━━━━━━━━━
-st.markdown("### Data Control")
-
+# CLEAR DATA
 confirm = st.checkbox("Confirm clear simulation data")
 
 if confirm and st.button("🗑 Clear Simulation Data"):
-
-    df = pd.DataFrame(columns=[
+    pd.DataFrame(columns=[
         "Time","Mode","Decision","Score",
         "Entry","SL","Target","Exit",
         "Status","PnL","Note"
-    ])
-
-    df.to_csv("simulation_trades.csv", index=False)
+    ]).to_csv("simulation_trades.csv", index=False)
 
     st.success("Simulation data cleared ✅")
