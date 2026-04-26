@@ -7,9 +7,15 @@ import re
 st.set_page_config(layout="centered")
 
 DRAFT_FILE = "draft_state.csv"
+DATA_FILE = "simulation_trades.csv"
 
 #━━━━━━━━━━━━━━━━━━━
-# INIT DEFAULTS
+# HEADER
+#━━━━━━━━━━━━━━━━━━━
+st.markdown("## 📱 Trading Copilot")
+
+#━━━━━━━━━━━━━━━━━━━
+# SESSION STATE DEFAULTS
 #━━━━━━━━━━━━━━━━━━━
 defaults = {
     "entry": 0.0,
@@ -23,34 +29,12 @@ for k, v in defaults.items():
         st.session_state[k] = v
 
 #━━━━━━━━━━━━━━━━━━━
-# LOAD DRAFT (ONLY ON FIRST LOAD)
-#━━━━━━━━━━━━━━━━━━━
-if "draft_loaded" not in st.session_state:
-    if os.path.exists(DRAFT_FILE):
-        try:
-            draft = pd.read_csv(DRAFT_FILE).iloc[0].to_dict()
-            for k in defaults.keys():
-                if k in draft:
-                    st.session_state[k] = draft[k]
-            st.session_state.draft_loaded = True
-            st.info("Draft restored ✔")
-        except:
-            pass
-    else:
-        st.session_state.draft_loaded = True
-
-#━━━━━━━━━━━━━━━━━━━
-# HEADER
-#━━━━━━━━━━━━━━━━━━━
-st.markdown("## 📱 Trading Copilot")
-
-#━━━━━━━━━━━━━━━━━━━
 # MODE
 #━━━━━━━━━━━━━━━━━━━
 mode = st.radio("Mode", ["Range","Breakout","Opening"], horizontal=True)
 
 #━━━━━━━━━━━━━━━━━━━
-# PLAN
+# PLAN (STATIC CRT)
 #━━━━━━━━━━━━━━━━━━━
 st.markdown("### 🧠 Plan (CRT)")
 plan_text = st.text_area("", key="plan_text", height=90)
@@ -65,9 +49,9 @@ def extract_plan(plan_text):
 bias_plan, key_levels_plan, htf_trend = extract_plan(plan_text)
 
 #━━━━━━━━━━━━━━━━━━━
-# VOICE INPUT (ENTRY/SL/TARGET)
+# VOICE INPUT (TRADE LEVELS ONLY)
 #━━━━━━━━━━━━━━━━━━━
-voice_input = st.text_input("🎤 Voice Input")
+voice_input = st.text_input("🎤 Voice Input (Buy 210 SL 205 Target 230)")
 
 def extract_trade_levels(text):
     text = text.lower()
@@ -93,12 +77,43 @@ def extract_trade_levels(text):
 
 if voice_input:
     e, s, t = extract_trade_levels(voice_input)
+
     if e is not None:
         st.session_state.entry = e
     if s is not None:
         st.session_state.sl = s
     if t is not None:
         st.session_state.target = t
+
+#━━━━━━━━━━━━━━━━━━━
+# 💾 DRAFT CONTROLS (FIXED)
+#━━━━━━━━━━━━━━━━━━━
+st.markdown("### 💾 Draft Controls")
+
+c1, c2 = st.columns(2)
+
+with c1:
+    if st.button("💾 Save Draft"):
+        draft_data = {
+            "entry": st.session_state.entry,
+            "sl": st.session_state.sl,
+            "target": st.session_state.target,
+            "plan_text": st.session_state.plan_text
+        }
+        pd.DataFrame([draft_data]).to_csv(DRAFT_FILE, index=False)
+        st.success("Draft saved ✔")
+
+with c2:
+    if st.button("📂 Load Draft"):
+        if os.path.exists(DRAFT_FILE):
+            draft = pd.read_csv(DRAFT_FILE).iloc[0]
+            st.session_state.entry = draft["entry"]
+            st.session_state.sl = draft["sl"]
+            st.session_state.target = draft["target"]
+            st.session_state.plan_text = draft["plan_text"]
+            st.success("Draft loaded ✔")
+        else:
+            st.warning("No draft found")
 
 #━━━━━━━━━━━━━━━━━━━
 # TSL
@@ -137,9 +152,11 @@ target = st.number_input("Target", key="target")
 if st.button("🚀 Evaluate Trade"):
 
     tsl_condition = True if mode == "Opening" else tsl
+
     score = 0
 
     if tsl_condition:
+
         if mode == "Range":
             score = (
                 {"No":0,"1T":1,"2T":2,"3T":3}[cons] +
@@ -177,9 +194,6 @@ if st.button("🚀 Evaluate Trade"):
     outcome = st.radio("Outcome", ["Pending","Win","Loss","BE"], horizontal=True, index=0)
     review = st.text_area("🔍 Review", height=70)
 
-    sim_mode = st.session_state.get("sim_mode", True)
-    file_name = "simulation_trades.csv" if sim_mode else "live_trades.csv"
-
     log = {
         "Time": datetime.now(),
         "Mode": mode,
@@ -198,37 +212,34 @@ if st.button("🚀 Evaluate Trade"):
     df = pd.DataFrame([log])
 
     try:
-        old = pd.read_csv(file_name)
+        old = pd.read_csv(DATA_FILE)
         df = pd.concat([old, df], ignore_index=True)
     except:
         pass
 
-    df.to_csv(file_name, index=False)
-
-    if os.path.exists(DRAFT_FILE):
-        os.remove(DRAFT_FILE)
+    df.to_csv(DATA_FILE, index=False)
 
     st.success("Saved ✅")
 
 #━━━━━━━━━━━━━━━━━━━
-# AUTO SAVE DRAFT
+# CLEAR DATA
 #━━━━━━━━━━━━━━━━━━━
-pd.DataFrame([{
-    "entry": st.session_state.entry,
-    "sl": st.session_state.sl,
-    "target": st.session_state.target,
-    "plan_text": st.session_state.plan_text
-}]).to_csv(DRAFT_FILE, index=False)
+st.markdown("---")
+
+if st.button("🗑 Clear Simulation Data"):
+    if os.path.exists(DATA_FILE):
+        os.remove(DATA_FILE)
+        st.success("Simulation data cleared ✔")
+    else:
+        st.info("No data found")
 
 #━━━━━━━━━━━━━━━━━━━
-# ANALYTICS (RESTORED)
+# ANALYTICS
 #━━━━━━━━━━━━━━━━━━━
 st.markdown("### 📊 Analytics")
 
-file_name = "simulation_trades.csv"
-
 try:
-    df = pd.read_csv(file_name)
+    df = pd.read_csv(DATA_FILE)
 
     total = len(df)
     wins = len(df[df["Outcome"] == "Win"])
