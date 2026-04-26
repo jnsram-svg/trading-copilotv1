@@ -69,7 +69,8 @@ defaults = {
     "exit": 0.0,
     "note": "",
     "decision": "—",
-    "score": 0
+    "score": 0,
+    "last_mode": "Range"
 }
 
 for k, v in defaults.items():
@@ -78,7 +79,8 @@ for k, v in defaults.items():
 
 def reset_inputs():
     for k, v in defaults.items():
-        st.session_state[k] = v
+        if k != "last_mode":
+            st.session_state[k] = v
 
 #━━━━━━━━━━━━━━━━━━━
 # INLINE SELECT
@@ -89,14 +91,14 @@ def inline_select(label, options, key):
     return c2.selectbox("", options, key=key, label_visibility="collapsed")
 
 #━━━━━━━━━━━━━━━━━━━
-# 🔝 TOP BAR (NO SIM HERE)
+# 🔝 TOP BAR
 #━━━━━━━━━━━━━━━━━━━
 st.markdown('<div class="top-bar">', unsafe_allow_html=True)
 
 c1, c2, c3 = st.columns([2,2,1.2])
 
 with c1:
-    tsl_flip = st.radio("TSL", ["Yes","No"], horizontal=True, key="tsl")
+    st.radio("TSL", ["Yes","No"], horizontal=True, key="tsl")
 
 with c2:
     mode = st.radio("Mode", ["Range","Breakout","Opening"], horizontal=True)
@@ -117,6 +119,14 @@ with c3:
 st.markdown('</div>', unsafe_allow_html=True)
 
 #━━━━━━━━━━━━━━━━━━━
+# 🔥 MODE CHANGE RESET
+#━━━━━━━━━━━━━━━━━━━
+if mode != st.session_state.last_mode:
+    for k in ["cons","bb","retr","tl","sq","htf","prev","gap"]:
+        st.session_state[k] = defaults[k]
+    st.session_state.last_mode = mode
+
+#━━━━━━━━━━━━━━━━━━━
 # MAIN PANEL
 #━━━━━━━━━━━━━━━━━━━
 left, right = st.columns([1.2,1])
@@ -125,23 +135,23 @@ with left:
     st.markdown('<div class="card">', unsafe_allow_html=True)
 
     if mode == "Range":
-        cons = inline_select("Cons", ["No","Yes","2T","3T"], "cons")
-        bb = inline_select("BB", ["Yes","No"], "bb")
-        retr = inline_select("Ret", ["No","0.6","0.78"], "retr")
+        inline_select("Cons", ["No","Yes","2T","3T"], "cons")
+        inline_select("BB", ["Yes","No"], "bb")
+        inline_select("Ret", ["No","0.6","0.78"], "retr")
 
     elif mode == "Breakout":
-        tl = inline_select("Trendline", ["No","Yes"], "tl")
-        sq = inline_select("Squeeze", ["Yes","No"], "sq")
-        htf = inline_select("HTF", ["Above 0.786","Below 0.214","Neutral"], "htf")
+        inline_select("Trendline", ["No","Yes"], "tl")
+        inline_select("Squeeze", ["Yes","No"], "sq")
+        inline_select("HTF", ["Above 0.786","Below 0.214","Neutral"], "htf")
 
     else:
-        prev = inline_select("Prev", ["Buy","Sell"], "prev")
-        gap = inline_select("Gap", ["Up","Down","None"], "gap")
+        inline_select("Prev", ["Buy","Sell"], "prev")
+        inline_select("Gap", ["Up","Down","None"], "gap")
 
     st.markdown('</div>', unsafe_allow_html=True)
 
 with right:
-    note = st.text_area("Note", height=100, key="note")
+    st.text_area("Note", height=100, key="note")
 
 #━━━━━━━━━━━━━━━━━━━
 # ENTRY
@@ -149,37 +159,37 @@ with right:
 st.markdown("---")
 
 c1, c2, c3, c4 = st.columns(4)
-entry = c1.number_input("Entry", key="entry")
-sl = c2.number_input("SL", key="sl")
-target = c3.number_input("Target", key="target")
-exit_price = c4.number_input("Exit", key="exit")
+st.number_input("Entry", key="entry")
+st.number_input("SL", key="sl")
+st.number_input("Target", key="target")
+st.number_input("Exit", key="exit")
 
 #━━━━━━━━━━━━━━━━━━━
-# EVALUATION
+# 🔥 EVALUATION (SESSION ONLY)
 #━━━━━━━━━━━━━━━━━━━
 score = 0
 
-if tsl_flip == "No":
+if st.session_state.tsl == "No":
     decision = "NO TRADE"
 else:
     if mode == "Range":
-        if cons == "3T": score += 3
-        elif cons == "2T": score += 2
-        elif cons == "Yes": score += 1
-        if bb == "Yes": score += 1
-        if retr == "0.78": score += 2
-        elif retr == "0.6": score += 1
+        if st.session_state.cons == "3T": score += 3
+        elif st.session_state.cons == "2T": score += 2
+        elif st.session_state.cons == "Yes": score += 1
+        if st.session_state.bb == "Yes": score += 1
+        if st.session_state.retr == "0.78": score += 2
+        elif st.session_state.retr == "0.6": score += 1
 
     elif mode == "Breakout":
-        if tl == "Yes": score += 2
-        if sq == "Yes": score += 2
-        if htf != "Neutral": score += 1
+        if st.session_state.tl == "Yes": score += 2
+        if st.session_state.sq == "Yes": score += 2
+        if st.session_state.htf != "Neutral": score += 1
 
     else:
-        if prev == "Buy" and gap == "Up": score += 3
-        elif prev == "Buy" and gap == "Down": score += 2
-        elif prev == "Sell" and gap == "Down": score += 3
-        elif prev == "Sell" and gap == "Up": score += 2
+        if st.session_state.prev == "Buy" and st.session_state.gap == "Up": score += 3
+        elif st.session_state.prev == "Buy" and st.session_state.gap == "Down": score += 2
+        elif st.session_state.prev == "Sell" and st.session_state.gap == "Down": score += 3
+        elif st.session_state.prev == "Sell" and st.session_state.gap == "Up": score += 2
 
     decision = "STRONG" if score >= 6 else "MODERATE" if score >= 3 else "NO TRADE"
 
@@ -192,20 +202,29 @@ st.session_state.decision = decision
 status = ""
 pnl = 0
 
-if entry and sl and exit_price:
-    if entry > sl:
-        status = "LOSS" if exit_price <= sl else "WIN" if exit_price > entry else "BE"
-        pnl = (exit_price - entry) if status == "WIN" else (sl - entry)
+if st.session_state.entry and st.session_state.sl and st.session_state.exit:
+    e = st.session_state.entry
+    s = st.session_state.sl
+    x = st.session_state.exit
+
+    if e > s:
+        status = "LOSS" if x <= s else "WIN" if x > e else "BE"
+        pnl = (x - e) if status == "WIN" else (s - e)
     else:
-        status = "LOSS" if exit_price >= sl else "WIN" if exit_price < entry else "BE"
-        pnl = (entry - exit_price) if status == "WIN" else (entry - sl)
+        status = "LOSS" if x >= s else "WIN" if x < e else "BE"
+        pnl = (e - x) if status == "WIN" else (e - s)
 
 if status:
     st.write(f"{status} | {round(pnl,2)}")
 
 #━━━━━━━━━━━━━━━━━━━
-# SAVE
+# SAVE + SIM
 #━━━━━━━━━━━━━━━━━━━
+st.markdown("---")
+
+sim_mode = st.toggle("Simulation Mode", True)
+file_name = "simulation_trades.csv" if sim_mode else "live_trades.csv"
+
 if st.button("SAVE TRADE"):
 
     log = {
@@ -213,34 +232,33 @@ if st.button("SAVE TRADE"):
         "Mode": mode,
         "Decision": decision,
         "Score": score,
-        "Entry": entry,
-        "SL": sl,
-        "Target": target,
-        "Exit": exit_price,
+        "Entry": st.session_state.entry,
+        "SL": st.session_state.sl,
+        "Target": st.session_state.target,
+        "Exit": st.session_state.exit,
         "Status": status,
         "PnL": pnl,
-        "Note": note
+        "Note": st.session_state.note
     }
 
     df = pd.DataFrame([log])
 
-    # TEMP filename (will update after sim toggle)
-    df.to_csv("temp.csv", index=False)
+    try:
+        old = pd.read_csv(file_name)
+        df = pd.concat([old, df], ignore_index=True)
+    except:
+        pass
+
+    df.to_csv(file_name, index=False)
 
     st.success("Saved ✅")
     reset_inputs()
 
 #━━━━━━━━━━━━━━━━━━━
-# 🔽 SIM MODE (MOVED HERE)
+# ANALYTICS
 #━━━━━━━━━━━━━━━━━━━
 st.markdown("---")
 
-sim_mode = st.toggle("Simulation Mode", True)
-file_name = "simulation_trades.csv" if sim_mode else "live_trades.csv"
-
-#━━━━━━━━━━━━━━━━━━━
-# ANALYTICS
-#━━━━━━━━━━━━━━━━━━━
 try:
     df = pd.read_csv(file_name)
 
