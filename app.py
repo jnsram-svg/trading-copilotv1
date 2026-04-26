@@ -81,7 +81,7 @@ def reset_inputs():
         st.session_state[k] = v
 
 #━━━━━━━━━━━━━━━━━━━
-# INLINE SELECT HELPER
+# INLINE SELECT
 #━━━━━━━━━━━━━━━━━━━
 def inline_select(label, options, key):
     c1, c2 = st.columns([1,2])
@@ -89,20 +89,14 @@ def inline_select(label, options, key):
     return c2.selectbox("", options, key=key, label_visibility="collapsed")
 
 #━━━━━━━━━━━━━━━━━━━
-# 🔝 TOP BAR (COMPACT)
+# 🔝 TOP BAR (NO SIM HERE)
 #━━━━━━━━━━━━━━━━━━━
 st.markdown('<div class="top-bar">', unsafe_allow_html=True)
 
 c1, c2, c3 = st.columns([2,2,1.2])
 
 with c1:
-    sub1, sub2 = st.columns([3,1])
-
-    with sub1:
-        tsl_flip = st.radio("TSL", ["Yes","No"], horizontal=True, key="tsl")
-
-    with sub2:
-        sim_mode = st.toggle("Sim", True)
+    tsl_flip = st.radio("TSL", ["Yes","No"], horizontal=True, key="tsl")
 
 with c2:
     mode = st.radio("Mode", ["Range","Breakout","Opening"], horizontal=True)
@@ -115,14 +109,12 @@ with c3:
 
     st.markdown(f"""
     <div class="summary-box">
-        <div class="{color}" style="font-size:15px;">{decision}</div>
+        <div class="{color}" style="font-size:14px;">{decision}</div>
         <div class="small">Score: {score}</div>
     </div>
     """, unsafe_allow_html=True)
 
 st.markdown('</div>', unsafe_allow_html=True)
-
-file_name = "simulation_trades.csv" if sim_mode else "live_trades.csv"
 
 #━━━━━━━━━━━━━━━━━━━
 # MAIN PANEL
@@ -149,10 +141,10 @@ with left:
     st.markdown('</div>', unsafe_allow_html=True)
 
 with right:
-    note = st.text_area("Note", height=110, key="note")
+    note = st.text_area("Note", height=100, key="note")
 
 #━━━━━━━━━━━━━━━━━━━
-# ENTRY (COMPACT)
+# ENTRY
 #━━━━━━━━━━━━━━━━━━━
 st.markdown("---")
 
@@ -189,12 +181,7 @@ else:
         elif prev == "Sell" and gap == "Down": score += 3
         elif prev == "Sell" and gap == "Up": score += 2
 
-    if score >= 6:
-        decision = "STRONG"
-    elif score >= 3:
-        decision = "MODERATE"
-    else:
-        decision = "NO TRADE"
+    decision = "STRONG" if score >= 6 else "MODERATE" if score >= 3 else "NO TRADE"
 
 st.session_state.score = score
 st.session_state.decision = decision
@@ -207,23 +194,11 @@ pnl = 0
 
 if entry and sl and exit_price:
     if entry > sl:
-        if exit_price <= sl:
-            status = "LOSS"
-            pnl = sl - entry
-        elif exit_price > entry:
-            status = "WIN"
-            pnl = exit_price - entry
-        else:
-            status = "BE"
+        status = "LOSS" if exit_price <= sl else "WIN" if exit_price > entry else "BE"
+        pnl = (exit_price - entry) if status == "WIN" else (sl - entry)
     else:
-        if exit_price >= sl:
-            status = "LOSS"
-            pnl = entry - sl
-        elif exit_price < entry:
-            status = "WIN"
-            pnl = entry - exit_price
-        else:
-            status = "BE"
+        status = "LOSS" if exit_price >= sl else "WIN" if exit_price < entry else "BE"
+        pnl = (entry - exit_price) if status == "WIN" else (entry - sl)
 
 if status:
     st.write(f"{status} | {round(pnl,2)}")
@@ -249,29 +224,29 @@ if st.button("SAVE TRADE"):
 
     df = pd.DataFrame([log])
 
-    try:
-        old = pd.read_csv(file_name)
-        df = pd.concat([old, df], ignore_index=True)
-    except:
-        pass
-
-    df.to_csv(file_name, index=False)
+    # TEMP filename (will update after sim toggle)
+    df.to_csv("temp.csv", index=False)
 
     st.success("Saved ✅")
     reset_inputs()
 
 #━━━━━━━━━━━━━━━━━━━
-# ANALYTICS + CLEAR
+# 🔽 SIM MODE (MOVED HERE)
 #━━━━━━━━━━━━━━━━━━━
 st.markdown("---")
 
+sim_mode = st.toggle("Simulation Mode", True)
+file_name = "simulation_trades.csv" if sim_mode else "live_trades.csv"
+
+#━━━━━━━━━━━━━━━━━━━
+# ANALYTICS
+#━━━━━━━━━━━━━━━━━━━
 try:
     df = pd.read_csv(file_name)
 
     wins = len(df[df["Status"] == "WIN"])
     losses = len(df[df["Status"] == "LOSS"])
     closed = wins + losses
-
     win_rate = (wins / closed * 100) if closed else 0
 
     st.write(f"Trades: {len(df)} | Win%: {round(win_rate,1)}")
