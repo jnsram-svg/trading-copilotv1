@@ -5,7 +5,7 @@ from datetime import datetime
 st.set_page_config(layout="wide")
 
 #━━━━━━━━━━━━━━━━━━━
-# 🎨 STYLE (BIG SWITCH)
+# 🎨 STYLE (BIG TOGGLE)
 #━━━━━━━━━━━━━━━━━━━
 st.markdown("""
 <style>
@@ -16,7 +16,6 @@ div[data-testid="stToggle"] {
     padding: 12px;
     border-radius: 10px;
     background-color: #111827;
-    margin-top: 6px;
 }
 
 div[data-testid="stToggle"] label p {
@@ -27,15 +26,19 @@ div[data-testid="stToggle"] label p {
 """, unsafe_allow_html=True)
 
 #━━━━━━━━━━━━━━━━━━━
-# STATE
+# STATE INIT
 #━━━━━━━━━━━━━━━━━━━
 if "score" not in st.session_state:
     st.session_state.score = 0
+
 if "decision" not in st.session_state:
     st.session_state.decision = "—"
 
+if "run_eval" not in st.session_state:
+    st.session_state.run_eval = False
+
 #━━━━━━━━━━━━━━━━━━━
-# TOP BAR (UNCHANGED V2)
+# TOP BAR (UNCHANGED)
 #━━━━━━━━━━━━━━━━━━━
 c1, c2, c3, c4 = st.columns([2,2,1,1])
 
@@ -50,7 +53,8 @@ with c3:
     st.caption(f"Score: {st.session_state.score}")
 
 with c4:
-    evaluate_clicked = st.toggle("⚡ Evaluate", key="eval_toggle")
+    if st.toggle("⚡ Evaluate", key="eval_toggle"):
+        st.session_state.run_eval = True
 
 mode = st.session_state.mode
 
@@ -72,9 +76,10 @@ else:
     st.selectbox("Gap", ["Up","Down","None"], key="gap")
 
 #━━━━━━━━━━━━━━━━━━━
-# TRADE INPUTS (UNCHANGED)
+# TRADE INPUTS
 #━━━━━━━━━━━━━━━━━━━
 c1, c2, c3, c4 = st.columns(4)
+
 st.number_input("Entry", key="entry")
 st.number_input("SL", key="sl")
 st.number_input("Target", key="target")
@@ -83,9 +88,9 @@ st.number_input("Exit", key="exit")
 st.text_area("Notes", key="note")
 
 #━━━━━━━━━━━━━━━━━━━
-# 🔥 SCORING (ONLY WHEN TOGGLED)
+# 🔥 SCORING (SAFE TRIGGER)
 #━━━━━━━━━━━━━━━━━━━
-if evaluate_clicked:
+if st.session_state.run_eval:
 
     score = 0
 
@@ -120,8 +125,8 @@ if evaluate_clicked:
     st.session_state.score = score
     st.session_state.decision = decision
 
-    # reset toggle (important)
-    st.session_state.eval_toggle = False
+    # reset flag (SAFE)
+    st.session_state.run_eval = False
 
 #━━━━━━━━━━━━━━━━━━━
 # SAVE (UNCHANGED)
