@@ -2,6 +2,7 @@ import streamlit as st
 import pandas as pd
 from datetime import datetime
 import os
+import re
 
 st.set_page_config(layout="centered")
 
@@ -11,31 +12,78 @@ st.set_page_config(layout="centered")
 st.markdown("## 📱 Trading Copilot")
 
 #━━━━━━━━━━━━━━━━━━━
+# SESSION STATE (for hybrid input)
+#━━━━━━━━━━━━━━━━━━━
+for key in ["entry","sl","target"]:
+    if key not in st.session_state:
+        st.session_state[key] = 0.0
+
+#━━━━━━━━━━━━━━━━━━━
 # MODE
 #━━━━━━━━━━━━━━━━━━━
 mode = st.radio("Mode", ["Range","Breakout","Opening"], horizontal=True)
 
 #━━━━━━━━━━━━━━━━━━━
-# 🧠 PLAN (CRT SINGLE BOX)
+# 🧠 PLAN (FIXED STRUCTURE — NO VOICE)
 #━━━━━━━━━━━━━━━━━━━
 st.markdown("### 🧠 Plan (CRT)")
 
-plan_text = st.text_area(
-    "",
-    value="Bias:\nKey Levels:\nHTF Trend:",
-    height=90
-)
+if "plan_text" not in st.session_state:
+    st.session_state.plan_text = "Bias: \nKey Levels: \nHTF Trend: "
+
+plan_text = st.text_area("", key="plan_text", height=90)
 
 def extract_plan(plan_text):
     lines = plan_text.split("\n")
-
     bias = lines[0].replace("Bias:", "").strip() if len(lines) > 0 else ""
     levels = lines[1].replace("Key Levels:", "").strip() if len(lines) > 1 else ""
     htf_trend = lines[2].replace("HTF Trend:", "").strip() if len(lines) > 2 else ""
-
     return bias, levels, htf_trend
 
 bias_plan, key_levels_plan, htf_trend = extract_plan(plan_text)
+
+#━━━━━━━━━━━━━━━━━━━
+# 🎤 VOICE INPUT (ONLY FOR ENTRY / SL / TARGET)
+#━━━━━━━━━━━━━━━━━━━
+voice_input = st.text_input(
+    "🎤 Voice Input (e.g., Buy 210 SL 205 Target 230)"
+)
+
+def extract_trade_levels(text):
+    text = text.lower()
+
+    numbers = list(map(float, re.findall(r"\d+\.?\d*", text)))
+
+    entry, sl, target = None, None, None
+
+    sl_match = re.search(r"(sl|stop)[^\d]*(\d+\.?\d*)", text)
+    if sl_match:
+        sl = float(sl_match.group(2))
+
+    tgt_match = re.search(r"(target|tgt)[^\d]*(\d+\.?\d*)", text)
+    if tgt_match:
+        target = float(tgt_match.group(2))
+
+    used = {sl, target}
+    for n in numbers:
+        if n not in used:
+            entry = n
+            break
+
+    return entry, sl, target
+
+# Apply voice input safely
+if voice_input:
+    e, s, t = extract_trade_levels(voice_input)
+
+    if e is not None and st.session_state.entry == 0.0:
+        st.session_state.entry = e
+
+    if s is not None and st.session_state.sl == 0.0:
+        st.session_state.sl = s
+
+    if t is not None and st.session_state.target == 0.0:
+        st.session_state.target = t
 
 #━━━━━━━━━━━━━━━━━━━
 # TSL
@@ -64,23 +112,22 @@ else:
 #━━━━━━━━━━━━━━━━━━━
 # TRADE LEVELS
 #━━━━━━━━━━━━━━━━━━━
-entry = st.number_input("Entry", value=0.0)
-sl = st.number_input("Stop Loss", value=0.0)
-target = st.number_input("Target", value=0.0)
+entry = st.number_input("Entry", key="entry")
+sl = st.number_input("Stop Loss", key="sl")
+target = st.number_input("Target", key="target")
 
 #━━━━━━━━━━━━━━━━━━━
 # EVALUATE
 #━━━━━━━━━━━━━━━━━━━
 if st.button("🚀 Evaluate Trade"):
 
-    # Opening does not require TSL
     tsl_condition = True if mode == "Opening" else tsl
 
     score = 0
 
     if tsl_condition:
 
-        #━━━━━━━━ RANGE (UPDATED)
+        # RANGE
         if mode == "Range":
             score = (
                 {"No":0,"1T":1,"2T":2,"3T":3}[cons] +
@@ -88,7 +135,7 @@ if st.button("🚀 Evaluate Trade"):
                 {"No":0,"0.6":1,"0.78":2}[retr]
             )
 
-        #━━━━━━━━ BREAKOUT (UPDATED)
+        # BREAKOUT
         elif mode == "Breakout":
             score = (
                 {"No":0,"Yes":2}[tl] +
@@ -96,7 +143,7 @@ if st.button("🚀 Evaluate Trade"):
                 {"Neutral":0,"Above 0.786":2,"Below 0.214":2}[htf]
             )
 
-        #━━━━━━━━ OPENING (UPDATED)
+        # OPENING
         else:
             base = {
                 ("Buy","Up"):3,
@@ -114,7 +161,7 @@ if st.button("🚀 Evaluate Trade"):
     else:
         st.warning("TSL not satisfied → No Trade")
 
-    #━━━━━━━━ RR
+    # RR
     risk = abs(entry - sl)
     reward = abs(target - entry)
     rr = reward / risk if risk != 0 else 0
@@ -206,43 +253,6 @@ try:
     c3.metric("Win %", win_rate)
 
     st.dataframe(df.tail(10), use_container_width=True)
-
-except:
-    st.info("No data yet")
-
-#━━━━━━━━━━━━━━━━━━━
-# WIN RATE BY SCORE
-#━━━━━━━━━━━━━━━━━━━
-st.markdown("### 📈 Win Rate by Score")
-
-try:
-    df = pd.read_csv(file_name)
-
-    if "Score" in df.columns and "Outcome" in df.columns:
-
-        score_stats = []
-
-        for s in sorted(df["Score"].dropna().unique()):
-            subset = df[df["Score"] == s]
-
-            total = len(subset)
-            wins = len(subset[subset["Outcome"] == "Win"])
-
-            win_rate = round((wins / total)*100, 2) if total > 0 else 0
-
-            score_stats.append({
-                "Score": s,
-                "Trades": total,
-                "Wins": wins,
-                "Win %": win_rate
-            })
-
-        score_df = pd.DataFrame(score_stats).sort_values(by="Score", ascending=False)
-
-        st.dataframe(score_df, use_container_width=True)
-
-    else:
-        st.info("Score/Outcome data not available yet")
 
 except:
     st.info("No data yet")
