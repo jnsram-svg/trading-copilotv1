@@ -34,7 +34,7 @@ for k, v in defaults.items():
 mode = st.radio("Mode", ["Range","Breakout","Opening"], horizontal=True)
 
 #━━━━━━━━━━━━━━━━━━━
-# PLAN (STATIC CRT)
+# PLAN
 #━━━━━━━━━━━━━━━━━━━
 st.markdown("### 🧠 Plan (CRT)")
 plan_text = st.text_area("", key="plan_text", height=90)
@@ -49,7 +49,7 @@ def extract_plan(plan_text):
 bias_plan, key_levels_plan, htf_trend = extract_plan(plan_text)
 
 #━━━━━━━━━━━━━━━━━━━
-# VOICE INPUT (TRADE LEVELS ONLY)
+# VOICE INPUT
 #━━━━━━━━━━━━━━━━━━━
 voice_input = st.text_input("🎤 Voice Input (Buy 210 SL 205 Target 230)")
 
@@ -84,36 +84,6 @@ if voice_input:
         st.session_state.sl = s
     if t is not None:
         st.session_state.target = t
-
-#━━━━━━━━━━━━━━━━━━━
-# 💾 DRAFT CONTROLS (FIXED)
-#━━━━━━━━━━━━━━━━━━━
-st.markdown("### 💾 Draft Controls")
-
-c1, c2 = st.columns(2)
-
-with c1:
-    if st.button("💾 Save Draft"):
-        draft_data = {
-            "entry": st.session_state.entry,
-            "sl": st.session_state.sl,
-            "target": st.session_state.target,
-            "plan_text": st.session_state.plan_text
-        }
-        pd.DataFrame([draft_data]).to_csv(DRAFT_FILE, index=False)
-        st.success("Draft saved ✔")
-
-with c2:
-    if st.button("📂 Load Draft"):
-        if os.path.exists(DRAFT_FILE):
-            draft = pd.read_csv(DRAFT_FILE).iloc[0]
-            st.session_state.entry = draft["entry"]
-            st.session_state.sl = draft["sl"]
-            st.session_state.target = draft["target"]
-            st.session_state.plan_text = draft["plan_text"]
-            st.success("Draft loaded ✔")
-        else:
-            st.warning("No draft found")
 
 #━━━━━━━━━━━━━━━━━━━
 # TSL
@@ -232,6 +202,41 @@ if st.button("🗑 Clear Simulation Data"):
         st.success("Simulation data cleared ✔")
     else:
         st.info("No data found")
+
+#━━━━━━━━━━━━━━━━━━━
+# 💾 DRAFT CONTROLS (MOVED HERE)
+#━━━━━━━━━━━━━━━━━━━
+st.markdown("### 💾 Draft Controls")
+
+c1, c2 = st.columns(2)
+
+with c1:
+    if st.button("💾 Save Draft"):
+        draft_data = {
+            "entry": st.session_state.entry,
+            "sl": st.session_state.sl,
+            "target": st.session_state.target,
+            "plan_text": st.session_state.plan_text
+        }
+        pd.DataFrame([draft_data]).to_csv(DRAFT_FILE, index=False)
+        st.success("Draft saved ✔")
+
+with c2:
+    if st.button("📂 Load Draft"):
+        if os.path.exists(DRAFT_FILE):
+            draft = pd.read_csv(DRAFT_FILE).iloc[0]
+
+            st.session_state.entry = float(draft["entry"])
+            st.session_state.sl = float(draft["sl"])
+            st.session_state.target = float(draft["target"])
+            st.session_state.plan_text = draft["plan_text"]
+
+            st.success("Draft loaded ✔")
+
+            st.rerun()  # critical fix
+
+        else:
+            st.warning("No draft found")
 
 #━━━━━━━━━━━━━━━━━━━
 # ANALYTICS
