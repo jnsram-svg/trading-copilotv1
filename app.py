@@ -2,12 +2,10 @@ import streamlit as st
 import pandas as pd
 from datetime import datetime
 
-st.set_page_config(layout="centered")
-
 #━━━━━━━━━━━━━━━━━━━
-# FORCE MOBILE MODE
+# PAGE CONFIG (IMPORTANT)
 #━━━━━━━━━━━━━━━━━━━
-is_mobile = True
+st.set_page_config(layout="wide")   # 🔥 THIS FIXES MOBILE COLUMN SQUEEZE
 
 #━━━━━━━━━━━━━━━━━━━
 # SESSION
@@ -18,18 +16,22 @@ if "score" not in st.session_state:
     st.session_state.score = 0
 
 #━━━━━━━━━━━━━━━━━━━
-# TOP SECTION (STACKED FOR MOBILE)
+# TOP 3 COLUMN (BALANCED WIDTH)
 #━━━━━━━━━━━━━━━━━━━
-st.markdown("### Trade Setup")
+colL, colM, colR = st.columns([1.2,1,1.2])  # 🔥 better than equal split
 
-trade_type = st.radio("Trade", ["TSL", "Opening"])
+# LEFT
+with colL:
+    trade_type = st.radio("Trade", ["TSL", "Opening"], horizontal=True)
 
-if trade_type == "TSL":
-    tsl_flip = st.checkbox("TSL Flip")
-    mode = st.radio("Setup", ["Range", "Breakout"])
+    if trade_type == "TSL":
+        tsl_flip = st.checkbox("TSL Flip")
+        mode = st.radio("Setup", ["Range", "Breakout"], horizontal=True)
 
-sim_mode = st.checkbox("Sim Mode", True)
-review = st.text_area("Note", height=120)
+# RIGHT
+with colR:
+    sim_mode = st.checkbox("Sim Mode", True)
+    review = st.text_area("Note", height=120)
 
 file_name = "simulation_trades.csv" if sim_mode else "live_trades.csv"
 
@@ -38,33 +40,36 @@ file_name = "simulation_trades.csv" if sim_mode else "live_trades.csv"
 #━━━━━━━━━━━━━━━━━━━
 if trade_type == "TSL":
 
+    c1, c2, c3 = st.columns(3)
+
     if mode == "Range":
-        cons = st.selectbox("Consolidation", ["No","Yes","2T","3T"])
-        bb = st.selectbox("Bollinger", ["Yes","No"])
-        retr = st.selectbox("Retracement", ["No","0.6","0.78"])
+        cons = c1.selectbox("Cons", ["No","Yes","2T","3T"])
+        bb = c2.selectbox("BB", ["Yes","No"])
+        retr = c3.selectbox("Ret", ["No","0.6","0.78"])
 
     else:
-        tl = st.selectbox("Trendline", ["No","Yes"])
-        sq = st.selectbox("Squeeze", ["Yes","No"])
-        htf = st.selectbox("HTF", ["Above 0.786","Below 0.214","Neutral"])
+        tl = c1.selectbox("Trendline", ["No","Yes"])
+        sq = c2.selectbox("Squeeze", ["Yes","No"])
+        htf = c3.selectbox("HTF", ["Above 0.786","Below 0.214","Neutral"])
 
 else:
-    prev = st.selectbox("Prev", ["Buy","Sell"])
-    gap = st.selectbox("Gap", ["Up","Down","None"])
+    c1, c2 = st.columns(2)
+    prev = c1.selectbox("Prev", ["Buy","Sell"])
+    gap = c2.selectbox("Gap", ["Up","Down","None"])
 
 #━━━━━━━━━━━━━━━━━━━
-# TRADE INPUT
+# ENTRY ROW
 #━━━━━━━━━━━━━━━━━━━
-st.markdown("### Trade Levels")
+c1, c2, c3 = st.columns(3)
 
-entry = st.number_input("Entry")
-sl = st.number_input("SL")
-target = st.number_input("Target")
+entry = c1.number_input("Entry")
+sl = c2.number_input("SL")
+target = c3.number_input("Target")
 
 exit_price = st.number_input("Exit")
 
 #━━━━━━━━━━━━━━━━━━━
-# AUTO EVALUATION
+# AUTO EVAL
 #━━━━━━━━━━━━━━━━━━━
 score = 0
 
@@ -108,19 +113,16 @@ else:
     st.session_state.decision = "NO TRADE"
 
 #━━━━━━━━━━━━━━━━━━━
-# SUMMARY (CLEAR BLOCK)
+# SUMMARY (CENTER COLUMN)
 #━━━━━━━━━━━━━━━━━━━
-st.markdown("### Summary")
+with colM:
+    st.markdown("**Summary**")
+    st.markdown(f"**{st.session_state.decision}**")
+    st.caption(f"Score: {st.session_state.score}")
 
-st.markdown(f"**Decision: {st.session_state.decision}**")
-st.write(f"Score: {st.session_state.score}")
-
-if entry and sl and target and entry != sl:
-    rr = abs(target - entry) / abs(entry - sl)
-    st.write(f"RR: {round(rr,2)}")
-
-    if rr < 1:
-        st.warning("Low RR")
+    if entry and sl and target and entry != sl:
+        rr = abs(target - entry) / abs(entry - sl)
+        st.caption(f"RR: {round(rr,2)}")
 
 #━━━━━━━━━━━━━━━━━━━
 # RESULT
