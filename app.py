@@ -14,7 +14,7 @@ if "decision" not in st.session_state:
     st.session_state.decision = "—"
 
 #━━━━━━━━━━━━━━━━━━━
-# TOP BAR (V2 STYLE)
+# TOP BAR (V2)
 #━━━━━━━━━━━━━━━━━━━
 c1, c2, c3, c4 = st.columns([2,2,1,1])
 
@@ -32,47 +32,19 @@ with c4:
     run = st.button("⚡ Evaluate")
 
 #━━━━━━━━━━━━━━━━━━━
-# INPUTS (ENUM SAFE)
+# INPUTS (LOCAL VARIABLES ONLY)
 #━━━━━━━━━━━━━━━━━━━
 if mode == "Range":
 
-    cons_label, cons_val = st.selectbox(
-        "Cons",
-        [("No",0), ("Yes",1), ("1T",1), ("2T",2), ("3T",3)],
-        format_func=lambda x: x[0]
-    )
-
-    bb_label, bb_val = st.selectbox(
-        "BB",
-        [("No",0), ("Yes",1)],
-        format_func=lambda x: x[0]
-    )
-
-    retr_label, retr_val = st.selectbox(
-        "Ret",
-        [("No",0), ("0.6",1), ("0.78",2)],
-        format_func=lambda x: x[0]
-    )
+    cons = st.selectbox("Cons", ["No","Yes","1T","2T","3T"])
+    bb = st.selectbox("BB", ["No","Yes"])
+    retr = st.selectbox("Ret", ["No","0.6","0.78"])
 
 elif mode == "Breakout":
 
-    tl_label, tl_val = st.selectbox(
-        "Trendline",
-        [("No",0), ("Yes",2)],
-        format_func=lambda x: x[0]
-    )
-
-    sq_label, sq_val = st.selectbox(
-        "Squeeze",
-        [("No",0), ("Yes",2)],
-        format_func=lambda x: x[0]
-    )
-
-    htf_label, htf_val = st.selectbox(
-        "HTF",
-        [("Neutral",0), ("Above 0.786",1), ("Below 0.214",1)],
-        format_func=lambda x: x[0]
-    )
+    tl = st.selectbox("Trendline", ["No","Yes"])
+    sq = st.selectbox("Squeeze", ["No","Yes"])
+    htf = st.selectbox("HTF", ["Neutral","Above 0.786","Below 0.214"])
 
 else:
 
@@ -92,11 +64,11 @@ exit_price = st.number_input("Exit")
 note = st.text_area("Notes")
 
 #━━━━━━━━━━━━━━━━━━━
-# 🔥 SCORING (PURE — NO += ANYWHERE)
+# 🔥 CORRECT SCORING (PURE)
 #━━━━━━━━━━━━━━━━━━━
 if run:
 
-    # ALWAYS RESET SCORE (CRITICAL)
+    # ALWAYS RESET
     score = 0
 
     if tsl == "No":
@@ -105,12 +77,19 @@ if run:
     else:
         if mode == "Range":
 
-            # PURE CALCULATION (NO ACCUMULATION)
-            score = cons_val + bb_val + retr_val
+            cons_map = {"No":0,"Yes":1,"1T":1,"2T":2,"3T":3}
+            bb_map = {"No":0,"Yes":1}
+            retr_map = {"No":0,"0.6":1,"0.78":2}
+
+            score = cons_map[cons] + bb_map[bb] + retr_map[retr]
 
         elif mode == "Breakout":
 
-            score = tl_val + sq_val + htf_val
+            tl_map = {"No":0,"Yes":2}
+            sq_map = {"No":0,"Yes":2}
+            htf_map = {"Neutral":0,"Above 0.786":1,"Below 0.214":1}
+
+            score = tl_map[tl] + sq_map[sq] + htf_map[htf]
 
         else:
 
@@ -129,12 +108,12 @@ if run:
         else:
             decision = "NO TRADE"
 
-    # 🔥 OVERWRITE (NOT ADD)
-    st.session_state.score = int(score)
+    # 🔥 OVERWRITE ONLY
+    st.session_state.score = score
     st.session_state.decision = decision
 
 #━━━━━━━━━━━━━━━━━━━
-# SAVE (UNCHANGED)
+# SAVE
 #━━━━━━━━━━━━━━━━━━━
 sim_mode = st.toggle("Simulation Mode", True)
 file_name = "simulation_trades.csv" if sim_mode else "live_trades.csv"
