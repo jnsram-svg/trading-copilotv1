@@ -6,14 +6,21 @@ import os
 st.set_page_config(layout="centered")
 
 #━━━━━━━━━━━━━━━━━━━
-# MINIMAL HEADER
+# HEADER
 #━━━━━━━━━━━━━━━━━━━
 st.markdown("## 📱 Trading Copilot")
 
 #━━━━━━━━━━━━━━━━━━━
-# MODE (TOP — COMPACT)
+# MODE
 #━━━━━━━━━━━━━━━━━━━
 mode = st.radio("Mode", ["Range","Breakout","Opening"], horizontal=True)
+
+#━━━━━━━━━━━━━━━━━━━
+# PLAN SECTION (NEW)
+#━━━━━━━━━━━━━━━━━━━
+st.markdown("### 🧠 Plan")
+
+plan = st.text_area("What is your plan?", height=80)
 
 #━━━━━━━━━━━━━━━━━━━
 # TSL
@@ -87,7 +94,11 @@ if st.button("🚀 Evaluate Trade"):
 
     follow = st.radio("Follow Trade?", ["Yes","No"], horizontal=True)
 
-    #━━━━━━━━ FILE MODE (BOTTOM CONTROL)
+    #━━━━━━━━ REVIEW SECTION (NEW)
+    st.markdown("### 🔍 Review")
+    review = st.text_area("Post-trade thoughts", height=80)
+
+    #━━━━━━━━ FILE MODE
     sim_mode = st.session_state.get("sim_mode", True)
     file_name = "simulation_trades.csv" if sim_mode else "live_trades.csv"
 
@@ -97,7 +108,9 @@ if st.button("🚀 Evaluate Trade"):
         "Score": score,
         "Decision": decision,
         "RR": rr,
-        "Followed": follow
+        "Followed": follow,
+        "Plan": plan,
+        "Review": review
     }
 
     df = pd.DataFrame([log])
@@ -113,7 +126,7 @@ if st.button("🚀 Evaluate Trade"):
     st.success("Saved ✅")
 
 #━━━━━━━━━━━━━━━━━━━
-# 🔻 BOTTOM CONTROL PANEL
+# BOTTOM CONTROLS
 #━━━━━━━━━━━━━━━━━━━
 st.markdown("---")
 
