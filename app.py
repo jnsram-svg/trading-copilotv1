@@ -19,7 +19,6 @@ header {visibility: hidden;}
     z-index: 999;
     padding: 8px 12px;
     border-bottom: 1px solid #2f3542;
-    box-shadow: 0px 3px 10px rgba(0,0,0,0.35);
 }
 
 .card {
@@ -42,14 +41,6 @@ header {visibility: hidden;}
 .small {font-size: 0.72rem;}
 </style>
 """, unsafe_allow_html=True)
-
-#━━━━━━━━━━━━━━━━━━━
-# CLEAN FUNCTION (🔥 FIX)
-#━━━━━━━━━━━━━━━━━━━
-def clean(v):
-    if isinstance(v, str):
-        return v.strip().upper()
-    return v
 
 #━━━━━━━━━━━━━━━━━━━
 # DEFAULT STATE
@@ -79,17 +70,28 @@ for k, v in defaults.items():
         st.session_state[k] = v
 
 def reset_inputs():
-    for k, v in defaults.items():
+    for k in defaults:
         if k != "last_mode":
-            st.session_state[k] = v
+            st.session_state[k] = defaults[k]
 
 #━━━━━━━━━━━━━━━━━━━
-# INLINE SELECT
+# 🔥 INLINE SELECT (FIXED)
 #━━━━━━━━━━━━━━━━━━━
 def inline_select(label, options, key):
+    unique_key = f"{key}_{st.session_state.last_mode}"
+
     c1, c2 = st.columns([1,2])
     c1.markdown(f"**{label}**")
-    c2.selectbox("", options, key=key, label_visibility="collapsed")
+
+    value = c2.selectbox(
+        "",
+        options,
+        key=unique_key,
+        label_visibility="collapsed"
+    )
+
+    # sync to main state
+    st.session_state[key] = value
 
 #━━━━━━━━━━━━━━━━━━━
 # TOP BAR
@@ -107,6 +109,7 @@ with c2:
 with c3:
     decision = st.session_state.decision
     score = st.session_state.score
+
     color = "green" if decision=="STRONG" else "yellow" if decision=="MODERATE" else "red"
 
     st.markdown(f"""
@@ -165,48 +168,34 @@ st.number_input("Target", key="target")
 st.number_input("Exit", key="exit")
 
 #━━━━━━━━━━━━━━━━━━━
-# 🔥 PURE + CLEAN SCORING
+# 🔥 PURE SCORING
 #━━━━━━━━━━━━━━━━━━━
-if clean(st.session_state.tsl) == "NO":
+if st.session_state.tsl == "No":
     score = 0
     decision = "NO TRADE"
 
 else:
     if mode == "Range":
-
-        cons = clean(st.session_state.cons)
-        bb = clean(st.session_state.bb)
-        retr = clean(st.session_state.retr)
-
         score = (
-            {"NO":0,"YES":1,"1T":1,"2T":2,"3T":3}.get(cons, 0)
-            + {"NO":0,"YES":1}.get(bb, 0)
-            + {"NO":0,"0.6":1,"0.78":2}.get(retr, 0)
+            {"No":0,"Yes":1,"1T":1,"2T":2,"3T":3}[st.session_state.cons]
+            + {"No":0,"Yes":1}[st.session_state.bb]
+            + {"No":0,"0.6":1,"0.78":2}[st.session_state.retr]
         )
 
     elif mode == "Breakout":
-
-        tl = clean(st.session_state.tl)
-        sq = clean(st.session_state.sq)
-        htf = clean(st.session_state.htf)
-
         score = (
-            {"NO":0,"YES":2}.get(tl, 0)
-            + {"NO":0,"YES":2}.get(sq, 0)
-            + {"NEUTRAL":0,"ABOVE 0.786":1,"BELOW 0.214":1}.get(htf, 0)
+            {"No":0,"Yes":2}[st.session_state.tl]
+            + {"No":0,"Yes":2}[st.session_state.sq]
+            + {"Neutral":0,"Above 0.786":1,"Below 0.214":1}[st.session_state.htf]
         )
 
     else:
-
-        prev = clean(st.session_state.prev)
-        gap = clean(st.session_state.gap)
-
         score = {
-            ("BUY","UP"):3,
-            ("BUY","DOWN"):2,
-            ("SELL","DOWN"):3,
-            ("SELL","UP"):2
-        }.get((prev, gap), 0)
+            ("Buy","Up"):3,
+            ("Buy","Down"):2,
+            ("Sell","Down"):3,
+            ("Sell","Up"):2
+        }.get((st.session_state.prev, st.session_state.gap), 0)
 
     decision = "STRONG" if score >= 6 else "MODERATE" if score >= 3 else "NO TRADE"
 
@@ -216,12 +205,12 @@ st.session_state.decision = decision
 #━━━━━━━━━━━━━━━━━━━
 # RESULT
 #━━━━━━━━━━━━━━━━━━━
-status = ""
-pnl = 0
-
 e = st.session_state.entry
 s = st.session_state.sl
 x = st.session_state.exit
+
+status = ""
+pnl = 0
 
 if e and s and x:
     if e > s:
