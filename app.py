@@ -1,9 +1,11 @@
 import streamlit as st
+import pandas as pd
+from datetime import datetime
 
 st.set_page_config(layout="wide")
 
 #━━━━━━━━━━━━━━━━━━━
-# DEFAULT STATE
+# SESSION STATE
 #━━━━━━━━━━━━━━━━━━━
 if "score" not in st.session_state:
     st.session_state.score = 0
@@ -11,61 +13,78 @@ if "decision" not in st.session_state:
     st.session_state.decision = "—"
 
 #━━━━━━━━━━━━━━━━━━━
-# TOP BAR (V2)
+# TOP BAR (UNCHANGED V2 STYLE)
 #━━━━━━━━━━━━━━━━━━━
 c1, c2, c3 = st.columns([2,2,1])
 
 with c1:
-    tsl = st.radio("TSL", ["Yes","No"], horizontal=True)
+    st.radio("TSL", ["Yes","No"], horizontal=True, key="tsl")
 
 with c2:
-    mode = st.radio("Mode", ["Range","Breakout","Opening"], horizontal=True)
+    st.radio("Mode", ["Range","Breakout","Opening"], horizontal=True, key="mode")
 
 with c3:
     d = st.session_state.decision
     s = st.session_state.score
-    st.markdown(f"**{d} | Score: {s}**")
+    st.markdown(f"### {d}")
+    st.caption(f"Score: {s}")
+
+mode = st.session_state.mode
 
 #━━━━━━━━━━━━━━━━━━━
-# INPUTS (V2 STRUCTURE)
+# INPUT PANEL (V2 STRUCTURE)
 #━━━━━━━━━━━━━━━━━━━
 if mode == "Range":
-    cons = st.selectbox("Cons", ["No","Yes","1T","2T","3T"])
-    bb = st.selectbox("BB", ["Yes","No"])
-    retr = st.selectbox("Ret", ["No","0.6","0.78"])
+    st.selectbox("Cons", ["No","Yes","1T","2T","3T"], key="cons")
+    st.selectbox("BB", ["Yes","No"], key="bb")
+    st.selectbox("Ret", ["No","0.6","0.78"], key="retr")
 
 elif mode == "Breakout":
-    tl = st.selectbox("Trendline", ["No","Yes"])
-    sq = st.selectbox("Squeeze", ["Yes","No"])
-    htf = st.selectbox("HTF", ["Above 0.786","Below 0.214","Neutral"])
+    st.selectbox("Trendline", ["No","Yes"], key="tl")
+    st.selectbox("Squeeze", ["Yes","No"], key="sq")
+    st.selectbox("HTF", ["Above 0.786","Below 0.214","Neutral"], key="htf")
 
 else:
-    prev = st.selectbox("Prev", ["Buy","Sell"])
-    gap = st.selectbox("Gap", ["Up","Down","None"])
+    st.selectbox("Prev", ["Buy","Sell"], key="prev")
+    st.selectbox("Gap", ["Up","Down","None"], key="gap")
 
 #━━━━━━━━━━━━━━━━━━━
-# 🔥 V1 STYLE SCORING FUNCTION
+# TRADE INPUTS (UNCHANGED)
+#━━━━━━━━━━━━━━━━━━━
+st.markdown("---")
+
+c1, c2, c3, c4 = st.columns(4)
+st.number_input("Entry", key="entry")
+st.number_input("SL", key="sl")
+st.number_input("Target", key="target")
+st.number_input("Exit", key="exit")
+
+st.text_area("Notes", key="note")
+
+#━━━━━━━━━━━━━━━━━━━
+# 🔥 V1 SCORING LOGIC (ONLY FUNCTION)
 #━━━━━━━━━━━━━━━━━━━
 def calculate_score():
 
     score = 0
 
-    # TSL filter
-    if tsl == "No":
+    if st.session_state.tsl == "No":
         return 0, "NO TRADE"
+
+    mode = st.session_state.mode
 
     if mode == "Range":
         score = (
-            {"No":0,"Yes":1,"1T":1,"2T":2,"3T":3}[cons]
-            + {"No":0,"Yes":1}[bb]
-            + {"No":0,"0.6":1,"0.78":2}[retr]
+            {"No":0,"Yes":1,"1T":1,"2T":2,"3T":3}[st.session_state.cons]
+            + {"No":0,"Yes":1}[st.session_state.bb]
+            + {"No":0,"0.6":1,"0.78":2}[st.session_state.retr]
         )
 
     elif mode == "Breakout":
         score = (
-            {"No":0,"Yes":2}[tl]
-            + {"No":0,"Yes":2}[sq]
-            + {"Neutral":0,"Above 0.786":1,"Below 0.214":1}[htf]
+            {"No":0,"Yes":2}[st.session_state.tl]
+            + {"No":0,"Yes":2}[st.session_state.sq]
+            + {"Neutral":0,"Above 0.786":1,"Below 0.214":1}[st.session_state.htf]
         )
 
     else:
@@ -74,18 +93,73 @@ def calculate_score():
             ("Buy","Down"):2,
             ("Sell","Down"):3,
             ("Sell","Up"):2
-        }.get((prev, gap), 0)
+        }.get((st.session_state.prev, st.session_state.gap), 0)
 
     decision = "STRONG" if score >= 6 else "MODERATE" if score >= 3 else "NO TRADE"
 
     return score, decision
 
 #━━━━━━━━━━━━━━━━━━━
-# 🔥 BUTTON (V1 BEHAVIOR)
+# 🔥 EVALUATE BUTTON (ONLY CHANGE)
 #━━━━━━━━━━━━━━━━━━━
-if st.button("Evaluate"):
+st.markdown("---")
+
+if st.button("⚡ Evaluate", use_container_width=True):
 
     score, decision = calculate_score()
 
     st.session_state.score = score
     st.session_state.decision = decision
+
+#━━━━━━━━━━━━━━━━━━━
+# SAVE (UNCHANGED LOGIC)
+#━━━━━━━━━━━━━━━━━━━
+st.markdown("---")
+
+sim_mode = st.toggle("Simulation Mode", True)
+file_name = "simulation_trades.csv" if sim_mode else "live_trades.csv"
+
+if st.button("SAVE TRADE"):
+
+    log = {
+        "Time": datetime.now(),
+        "Mode": st.session_state.mode,
+        "Decision": st.session_state.decision,
+        "Score": st.session_state.score,
+        "Entry": st.session_state.entry,
+        "SL": st.session_state.sl,
+        "Target": st.session_state.target,
+        "Exit": st.session_state.exit,
+        "Note": st.session_state.note
+    }
+
+    df = pd.DataFrame([log])
+
+    try:
+        old = pd.read_csv(file_name)
+        df = pd.concat([old, df], ignore_index=True)
+    except:
+        pass
+
+    df.to_csv(file_name, index=False)
+
+    st.success("Saved ✅")
+
+#━━━━━━━━━━━━━━━━━━━
+# ANALYTICS (UNCHANGED)
+#━━━━━━━━━━━━━━━━━━━
+st.markdown("---")
+
+try:
+    df = pd.read_csv(file_name)
+
+    total = len(df)
+    strong = len(df[df["Decision"] == "STRONG"])
+
+    st.write(f"Trades: {total}")
+    st.write(f"Strong Trades: {strong}")
+
+    st.dataframe(df.tail(10), use_container_width=True)
+
+except:
+    st.caption("No data yet")
