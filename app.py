@@ -10,16 +10,11 @@ st.set_page_config(layout="wide")
 st.markdown("""
 <style>
 header {visibility: hidden;}
-
-.block-container {
-    padding-top: 0.8rem;
-}
+.block-container {padding-top: 0.8rem;}
 
 .top-bar {
     position: fixed;
-    top: 0;
-    left: 0;
-    right: 0;
+    top: 0; left: 0; right: 0;
     background: #111827;
     z-index: 999;
     padding: 8px 12px;
@@ -132,7 +127,7 @@ with left:
     st.markdown('<div class="card">', unsafe_allow_html=True)
 
     if mode == "Range":
-        inline_select("Cons", ["No","Yes","2T","3T"], "cons")
+        inline_select("Cons", ["No","Yes","1T","2T","3T"], "cons")
         inline_select("BB", ["Yes","No"], "bb")
         inline_select("Ret", ["No","0.6","0.78"], "retr")
 
@@ -162,31 +157,46 @@ st.number_input("Target", key="target")
 st.number_input("Exit", key="exit")
 
 #━━━━━━━━━━━━━━━━━━━
-# 🔥 CORRECT SCORING
+# 🔥 SCORING (MAPPING BASED)
 #━━━━━━━━━━━━━━━━━━━
 score = 0
 
 if st.session_state.tsl == "No":
     decision = "NO TRADE"
+
 else:
     if mode == "Range":
-        if st.session_state.cons == "3T": score += 3
-        elif st.session_state.cons == "2T": score += 2
-        elif st.session_state.cons == "Yes": score += 1
-        if st.session_state.bb == "Yes": score += 1
-        if st.session_state.retr == "0.78": score += 2
-        elif st.session_state.retr == "0.6": score += 1
+
+        cons_score = {"No":0,"Yes":1,"1T":1,"2T":2,"3T":3}
+        bb_score = {"No":0,"Yes":1}
+        retr_score = {"No":0,"0.6":1,"0.78":2}
+
+        score += cons_score.get(st.session_state.cons, 0)
+        score += bb_score.get(st.session_state.bb, 0)
+        score += retr_score.get(st.session_state.retr, 0)
 
     elif mode == "Breakout":
-        if st.session_state.tl == "Yes": score += 2
-        if st.session_state.sq == "Yes": score += 2
-        if st.session_state.htf != "Neutral": score += 1
+
+        tl_score = {"No":0,"Yes":2}
+        sq_score = {"No":0,"Yes":2}
+        htf_score = {"Neutral":0,"Above 0.786":1,"Below 0.214":1}
+
+        score += tl_score.get(st.session_state.tl, 0)
+        score += sq_score.get(st.session_state.sq, 0)
+        score += htf_score.get(st.session_state.htf, 0)
 
     else:
-        if st.session_state.prev == "Buy" and st.session_state.gap == "Up": score += 3
-        elif st.session_state.prev == "Buy" and st.session_state.gap == "Down": score += 2
-        elif st.session_state.prev == "Sell" and st.session_state.gap == "Down": score += 3
-        elif st.session_state.prev == "Sell" and st.session_state.gap == "Up": score += 2
+
+        opening_score = {
+            ("Buy","Up"):3,
+            ("Buy","Down"):2,
+            ("Sell","Down"):3,
+            ("Sell","Up"):2
+        }
+
+        score += opening_score.get(
+            (st.session_state.prev, st.session_state.gap), 0
+        )
 
     decision = "STRONG" if score >= 6 else "MODERATE" if score >= 3 else "NO TRADE"
 
@@ -199,11 +209,11 @@ st.session_state.decision = decision
 status = ""
 pnl = 0
 
-if st.session_state.entry and st.session_state.sl and st.session_state.exit:
-    e = st.session_state.entry
-    s = st.session_state.sl
-    x = st.session_state.exit
+e = st.session_state.entry
+s = st.session_state.sl
+x = st.session_state.exit
 
+if e and s and x:
     if e > s:
         status = "LOSS" if x <= s else "WIN" if x > e else "BE"
         pnl = (x - e) if status == "WIN" else (s - e)
@@ -229,10 +239,10 @@ if st.button("SAVE TRADE"):
         "Mode": mode,
         "Decision": decision,
         "Score": score,
-        "Entry": st.session_state.entry,
-        "SL": st.session_state.sl,
+        "Entry": e,
+        "SL": s,
         "Target": st.session_state.target,
-        "Exit": st.session_state.exit,
+        "Exit": x,
         "Status": status,
         "PnL": pnl,
         "Note": st.session_state.note
