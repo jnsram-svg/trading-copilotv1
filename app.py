@@ -5,6 +5,11 @@ from datetime import datetime
 st.set_page_config(layout="centered")
 
 #━━━━━━━━━━━━━━━━━━━
+# MOBILE TOGGLE (can remove later)
+#━━━━━━━━━━━━━━━━━━━
+is_mobile = st.checkbox("Mobile View", value=True)
+
+#━━━━━━━━━━━━━━━━━━━
 # SESSION
 #━━━━━━━━━━━━━━━━━━━
 if "decision" not in st.session_state:
@@ -13,11 +18,16 @@ if "score" not in st.session_state:
     st.session_state.score = 0
 
 #━━━━━━━━━━━━━━━━━━━
-# TOP 3-COLUMN (EVEN)
+# TOP LAYOUT
 #━━━━━━━━━━━━━━━━━━━
-colL, colM, colR = st.columns(3)
+if not is_mobile:
+    colL, colM, colR = st.columns(3)
+else:
+    colL = st.container()
+    colM = st.container()
+    colR = st.container()
 
-# LEFT → TSL FLOW
+# LEFT
 with colL:
     trade_type = st.radio("Trade", ["TSL", "Opening"])
 
@@ -25,39 +35,54 @@ with colL:
         tsl_flip = st.checkbox("TSL Flip")
         mode = st.radio("Setup", ["Range", "Breakout"])
 
-# RIGHT → SIM + NOTE
+# RIGHT
 with colR:
     sim_mode = st.checkbox("Sim Mode", True)
-    review = st.text_area("Note", height=160)
+    review = st.text_area("Note", height=120 if is_mobile else 160)
 
 file_name = "simulation_trades.csv" if sim_mode else "live_trades.csv"
 
 #━━━━━━━━━━━━━━━━━━━
-# SETUP ROW (ABOVE ENTRY)
+# SETUP ROW
 #━━━━━━━━━━━━━━━━━━━
 if trade_type == "TSL":
 
-    if mode == "Range":
+    if not is_mobile:
         c1, c2, c3 = st.columns(3)
+    else:
+        c1 = st.container()
+        c2 = st.container()
+        c3 = st.container()
+
+    if mode == "Range":
         cons = c1.selectbox("Consolidation", ["No","Yes","2T","3T"], key="cons")
         bb = c2.selectbox("Bollinger", ["Yes","No"], key="bb")
         retr = c3.selectbox("Retracement", ["No","0.6","0.78"], key="retr")
 
     else:
-        c1, c2, c3 = st.columns(3)
         tl = c1.selectbox("Trendline", ["No","Yes"], key="tl")
         sq = c2.selectbox("Squeeze", ["Yes","No"], key="sq")
         htf = c3.selectbox("HTF", ["Above 0.786","Below 0.214","Neutral"], key="htf")
 
 else:
-    c1, c2 = st.columns(2)
+    if not is_mobile:
+        c1, c2 = st.columns(2)
+    else:
+        c1 = st.container()
+        c2 = st.container()
+
     prev = c1.selectbox("Prev", ["Buy","Sell"], key="prev")
     gap = c2.selectbox("Gap", ["Up","Down","None"], key="gap")
 
 #━━━━━━━━━━━━━━━━━━━
 # TRADE INPUT
 #━━━━━━━━━━━━━━━━━━━
-c1, c2, c3 = st.columns(3)
+if not is_mobile:
+    c1, c2, c3 = st.columns(3)
+else:
+    c1 = st.container()
+    c2 = st.container()
+    c3 = st.container()
 
 entry = c1.number_input("Entry")
 sl = c2.number_input("SL")
@@ -110,11 +135,10 @@ else:
     st.session_state.decision = "NO TRADE"
 
 #━━━━━━━━━━━━━━━━━━━
-# CENTER SUMMARY (COMPACT)
+# SUMMARY
 #━━━━━━━━━━━━━━━━━━━
 with colM:
     st.markdown("**Summary**")
-
     st.markdown(f"**{st.session_state.decision}**")
     st.caption(f"Score: {st.session_state.score}")
 
@@ -184,8 +208,9 @@ if st.button("Save"):
 
     df.to_csv(file_name, index=False)
     st.success("Saved")
+
 #━━━━━━━━━━━━━━━━━━━
-# DASHBOARD (RESTORED)
+# DASHBOARD
 #━━━━━━━━━━━━━━━━━━━
 st.markdown("---")
 
@@ -203,18 +228,13 @@ try:
 
     st.write(f"Trades: {len(df)} | Win%: {round(win_rate,1)}")
 
-    # 🔥 SCORE VS PERFORMANCE (YOU MISSED THIS)
-    if "Decision" in df.columns and df["Decision"].notna().sum() > 0:
+    summary = df.groupby("Decision").agg(
+        Trades=("Decision", "count"),
+        AvgPnL=("PnL", "mean"),
+        WinRate=("Status", lambda x: (x == "WIN").sum()/len(x)*100)
+    )
 
-        st.markdown("**Score vs Performance**")
-
-        summary = df.groupby("Decision").agg(
-            Trades=("Decision", "count"),
-            AvgPnL=("PnL", "mean"),
-            WinRate=("Status", lambda x: (x == "WIN").sum()/len(x)*100)
-        )
-
-        st.dataframe(summary)
+    st.dataframe(summary)
 
 except:
     st.caption("No data yet")
