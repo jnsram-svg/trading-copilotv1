@@ -44,6 +44,14 @@ header {visibility: hidden;}
 """, unsafe_allow_html=True)
 
 #━━━━━━━━━━━━━━━━━━━
+# CLEAN FUNCTION (🔥 FIX)
+#━━━━━━━━━━━━━━━━━━━
+def clean(v):
+    if isinstance(v, str):
+        return v.strip().upper()
+    return v
+
+#━━━━━━━━━━━━━━━━━━━
 # DEFAULT STATE
 #━━━━━━━━━━━━━━━━━━━
 defaults = {
@@ -157,34 +165,48 @@ st.number_input("Target", key="target")
 st.number_input("Exit", key="exit")
 
 #━━━━━━━━━━━━━━━━━━━
-# 🔥 PURE SCORING (NO ACCUMULATION)
+# 🔥 PURE + CLEAN SCORING
 #━━━━━━━━━━━━━━━━━━━
-if st.session_state.tsl == "No":
+if clean(st.session_state.tsl) == "NO":
     score = 0
     decision = "NO TRADE"
 
 else:
     if mode == "Range":
+
+        cons = clean(st.session_state.cons)
+        bb = clean(st.session_state.bb)
+        retr = clean(st.session_state.retr)
+
         score = (
-            {"No":0,"Yes":1,"1T":1,"2T":2,"3T":3}.get(st.session_state.cons, 0)
-            + {"No":0,"Yes":1}.get(st.session_state.bb, 0)
-            + {"No":0,"0.6":1,"0.78":2}.get(st.session_state.retr, 0)
+            {"NO":0,"YES":1,"1T":1,"2T":2,"3T":3}.get(cons, 0)
+            + {"NO":0,"YES":1}.get(bb, 0)
+            + {"NO":0,"0.6":1,"0.78":2}.get(retr, 0)
         )
 
     elif mode == "Breakout":
+
+        tl = clean(st.session_state.tl)
+        sq = clean(st.session_state.sq)
+        htf = clean(st.session_state.htf)
+
         score = (
-            {"No":0,"Yes":2}.get(st.session_state.tl, 0)
-            + {"No":0,"Yes":2}.get(st.session_state.sq, 0)
-            + {"Neutral":0,"Above 0.786":1,"Below 0.214":1}.get(st.session_state.htf, 0)
+            {"NO":0,"YES":2}.get(tl, 0)
+            + {"NO":0,"YES":2}.get(sq, 0)
+            + {"NEUTRAL":0,"ABOVE 0.786":1,"BELOW 0.214":1}.get(htf, 0)
         )
 
     else:
+
+        prev = clean(st.session_state.prev)
+        gap = clean(st.session_state.gap)
+
         score = {
-            ("Buy","Up"):3,
-            ("Buy","Down"):2,
-            ("Sell","Down"):3,
-            ("Sell","Up"):2
-        }.get((st.session_state.prev, st.session_state.gap), 0)
+            ("BUY","UP"):3,
+            ("BUY","DOWN"):2,
+            ("SELL","DOWN"):3,
+            ("SELL","UP"):2
+        }.get((prev, gap), 0)
 
     decision = "STRONG" if score >= 6 else "MODERATE" if score >= 3 else "NO TRADE"
 
