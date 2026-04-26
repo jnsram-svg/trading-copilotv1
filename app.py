@@ -1,23 +1,19 @@
 import streamlit as st
 import pandas as pd
 from datetime import datetime
+import os
 
 st.set_page_config(layout="centered")
 
-st.title("📱 Trading Copilot (Stable Core)")
+#━━━━━━━━━━━━━━━━━━━
+# MINIMAL HEADER
+#━━━━━━━━━━━━━━━━━━━
+st.markdown("## 📱 Trading Copilot")
 
 #━━━━━━━━━━━━━━━━━━━
-# MODE + SIMULATION
+# MODE (TOP — COMPACT)
 #━━━━━━━━━━━━━━━━━━━
-c1, c2 = st.columns(2)
-
-with c1:
-    mode = st.radio("Mode", ["Range","Breakout","Opening"], horizontal=True)
-
-with c2:
-    sim_mode = st.toggle("Simulation Mode", True)
-
-file_name = "simulation_trades.csv" if sim_mode else "live_trades.csv"
+mode = st.radio("Mode", ["Range","Breakout","Opening"], horizontal=True)
 
 #━━━━━━━━━━━━━━━━━━━
 # TSL
@@ -28,19 +24,16 @@ tsl = st.checkbox("TSL Flip Required")
 # INPUTS
 #━━━━━━━━━━━━━━━━━━━
 if mode == "Range":
-
     cons = st.selectbox("Cons", ["No","Yes","1T","2T","3T"])
     bb = st.selectbox("BB", ["No","Yes"])
     retr = st.selectbox("Ret", ["No","0.6","0.78"])
 
 elif mode == "Breakout":
-
     tl = st.selectbox("Trendline", ["No","Yes"])
     sq = st.selectbox("Squeeze", ["No","Yes"])
     htf = st.selectbox("HTF", ["Neutral","Above 0.786","Below 0.214"])
 
 else:
-
     prev = st.selectbox("Prev", ["Buy","Sell"])
     gap = st.selectbox("Gap", ["Up","Down","None"])
 
@@ -52,15 +45,13 @@ sl = st.number_input("Stop Loss", value=0.0)
 target = st.number_input("Target", value=0.0)
 
 #━━━━━━━━━━━━━━━━━━━
-# 🔥 EVALUATE (V1 STYLE — STABLE)
+# EVALUATE
 #━━━━━━━━━━━━━━━━━━━
 if st.button("🚀 Evaluate Trade"):
 
     score = 0
-    reasons = []
 
     if tsl:
-
         if mode == "Range":
             score = (
                 {"No":0,"Yes":1,"1T":1,"2T":2,"3T":3}[cons] +
@@ -82,23 +73,23 @@ if st.button("🚀 Evaluate Trade"):
                 ("Sell","Down"):3,
                 ("Sell","Up"):2
             }.get((prev, gap), 0)
-
     else:
         st.warning("TSL not satisfied → No Trade")
 
-    #━━━━━━━━ RR
     risk = abs(entry - sl)
     reward = abs(target - entry)
     rr = reward / risk if risk != 0 else 0
 
-    #━━━━━━━━ DECISION
     decision = "STRONG" if score >= 6 else "MODERATE" if score >= 3 else "NO TRADE"
 
-    st.markdown(f"## {decision}")
+    st.markdown(f"### {decision}")
     st.write(f"Score: {score} | RR: {round(rr,2)}")
 
-    #━━━━━━━━ SAVE
     follow = st.radio("Follow Trade?", ["Yes","No"], horizontal=True)
+
+    #━━━━━━━━ FILE MODE (BOTTOM CONTROL)
+    sim_mode = st.session_state.get("sim_mode", True)
+    file_name = "simulation_trades.csv" if sim_mode else "live_trades.csv"
 
     log = {
         "Time": datetime.now(),
@@ -122,10 +113,29 @@ if st.button("🚀 Evaluate Trade"):
     st.success("Saved ✅")
 
 #━━━━━━━━━━━━━━━━━━━
-# 📊 ANALYTICS
+# 🔻 BOTTOM CONTROL PANEL
 #━━━━━━━━━━━━━━━━━━━
 st.markdown("---")
-st.subheader("📊 Analytics")
+
+c1, c2 = st.columns(2)
+
+with c1:
+    st.session_state.sim_mode = st.toggle("Simulation Mode", True)
+
+with c2:
+    if st.button("🗑 Clear Simulation Data"):
+        if os.path.exists("simulation_trades.csv"):
+            os.remove("simulation_trades.csv")
+            st.success("Simulation data cleared ✅")
+        else:
+            st.info("No simulation data found")
+
+#━━━━━━━━━━━━━━━━━━━
+# ANALYTICS
+#━━━━━━━━━━━━━━━━━━━
+st.markdown("### 📊 Analytics")
+
+file_name = "simulation_trades.csv" if st.session_state.sim_mode else "live_trades.csv"
 
 try:
     df = pd.read_csv(file_name)
@@ -137,9 +147,9 @@ try:
     win_rate = round((strong / total)*100, 2) if total > 0 else 0
 
     c1, c2, c3 = st.columns(3)
-    c1.metric("Total Trades", total)
-    c2.metric("Strong Trades", strong)
-    c3.metric("Win Rate %", win_rate)
+    c1.metric("Trades", total)
+    c2.metric("Strong", strong)
+    c3.metric("Win %", win_rate)
 
     st.dataframe(df.tail(10), use_container_width=True)
 
