@@ -5,20 +5,26 @@ from datetime import datetime
 st.set_page_config(layout="wide")
 
 #━━━━━━━━━━━━━━━━━━━
-# 🎨 FINAL STYLE
+# 🎨 FINAL POLISHED STYLE
 #━━━━━━━━━━━━━━━━━━━
 st.markdown("""
 <style>
 
-/* Hide Streamlit header */
+/* Hide default header */
 header {visibility: hidden;}
 
-/* Push content below sticky bar */
+/* 🔥 PERFECT TOP ALIGNMENT */
 .block-container {
-    padding-top: 4.5rem;
+    padding-top: 0.8rem;
+    padding-bottom: 0rem;
 }
 
-/* 🔥 FINAL TOP BAR */
+/* Remove extra vertical gaps globally */
+div[data-testid="stVerticalBlock"] > div {
+    gap: 0.4rem;
+}
+
+/* 🔥 STICKY TOP BAR */
 .top-bar {
     position: fixed;
     top: 0;
@@ -29,34 +35,35 @@ header {visibility: hidden;}
 
     z-index: 999;
 
-    padding: 10px 15px;
+    padding: 8px 12px;
 
     border-bottom: 1px solid #2f3542;
 
-    box-shadow: 0px 4px 12px rgba(0,0,0,0.35);
+    box-shadow: 0px 3px 10px rgba(0,0,0,0.35);
 }
 
-/* Cards */
+/* Card panel */
 .card {
     background-color: #111827;
-    padding: 12px;
-    border-radius: 10px;
+    padding: 10px;
+    border-radius: 8px;
     border: 1px solid #2a2f3a;
 }
 
-/* Summary */
+/* Summary box */
 .summary-box {
-    padding: 8px;
-    border-radius: 8px;
+    padding: 6px;
+    border-radius: 6px;
     text-align: center;
     border: 1px solid #333;
 }
 
+/* Colors */
 .green {color:#00ff88;}
 .yellow {color:#ffaa00;}
 .red {color:#ff4d4d;}
 
-.small {font-size: 0.75rem;}
+.small {font-size: 0.72rem;}
 
 </style>
 """, unsafe_allow_html=True)
@@ -87,15 +94,12 @@ for k, v in defaults.items():
     if k not in st.session_state:
         st.session_state[k] = v
 
-#━━━━━━━━━━━━━━━━━━━
-# RESET FUNCTION
-#━━━━━━━━━━━━━━━━━━━
 def reset_inputs():
     for k, v in defaults.items():
         st.session_state[k] = v
 
 #━━━━━━━━━━━━━━━━━━━
-# 🔝 STICKY TOP BAR
+# 🔝 TOP BAR
 #━━━━━━━━━━━━━━━━━━━
 st.markdown('<div class="top-bar">', unsafe_allow_html=True)
 
@@ -118,7 +122,7 @@ with c4:
 
     st.markdown(f"""
     <div class="summary-box">
-        <div class="{color}" style="font-size:16px;">{decision}</div>
+        <div class="{color}" style="font-size:15px;">{decision}</div>
         <div class="small">Score: {score}</div>
     </div>
     """, unsafe_allow_html=True)
@@ -152,7 +156,7 @@ with left:
     st.markdown('</div>', unsafe_allow_html=True)
 
 with right:
-    note = st.text_area("Note", height=120, key="note")
+    note = st.text_area("Note", height=110, key="note")
 
 #━━━━━━━━━━━━━━━━━━━
 # ENTRY
