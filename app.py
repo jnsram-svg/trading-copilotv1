@@ -5,27 +5,38 @@ from datetime import datetime
 st.set_page_config(layout="wide")
 
 #━━━━━━━━━━━━━━━━━━━
-# 🎨 STYLE
+# 🎨 FINAL STYLE
 #━━━━━━━━━━━━━━━━━━━
 st.markdown("""
 <style>
+
+/* Hide Streamlit header */
 header {visibility: hidden;}
 
+/* Push content below sticky bar */
 .block-container {
     padding-top: 4.5rem;
 }
 
+/* 🔥 FINAL TOP BAR */
 .top-bar {
     position: fixed;
     top: 0;
     left: 0;
     right: 0;
-    background: #0e1117;
+
+    background: #111827;
+
     z-index: 999;
+
     padding: 10px 15px;
-    border-bottom: 1px solid #2a2f3a;
+
+    border-bottom: 1px solid #2f3542;
+
+    box-shadow: 0px 4px 12px rgba(0,0,0,0.35);
 }
 
+/* Cards */
 .card {
     background-color: #111827;
     padding: 12px;
@@ -33,6 +44,7 @@ header {visibility: hidden;}
     border: 1px solid #2a2f3a;
 }
 
+/* Summary */
 .summary-box {
     padding: 8px;
     border-radius: 8px;
@@ -45,11 +57,12 @@ header {visibility: hidden;}
 .red {color:#ff4d4d;}
 
 .small {font-size: 0.75rem;}
+
 </style>
 """, unsafe_allow_html=True)
 
 #━━━━━━━━━━━━━━━━━━━
-# SESSION DEFAULTS
+# DEFAULT STATE
 #━━━━━━━━━━━━━━━━━━━
 defaults = {
     "tsl": "No",
@@ -82,7 +95,7 @@ def reset_inputs():
         st.session_state[k] = v
 
 #━━━━━━━━━━━━━━━━━━━
-# 🔝 TOP BAR
+# 🔝 STICKY TOP BAR
 #━━━━━━━━━━━━━━━━━━━
 st.markdown('<div class="top-bar">', unsafe_allow_html=True)
 
@@ -100,6 +113,7 @@ with c3:
 with c4:
     decision = st.session_state.decision
     score = st.session_state.score
+
     color = "green" if decision=="STRONG" else "yellow" if decision=="MODERATE" else "red"
 
     st.markdown(f"""
@@ -250,7 +264,6 @@ if st.button("SAVE TRADE"):
 
     st.success("Saved ✅")
 
-    # 🔥 RESET ALL INPUTS
     reset_inputs()
 
 #━━━━━━━━━━━━━━━━━━━
