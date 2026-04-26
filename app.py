@@ -12,7 +12,7 @@ st.set_page_config(layout="centered")
 st.markdown("## 📱 Trading Copilot")
 
 #━━━━━━━━━━━━━━━━━━━
-# SESSION STATE (HYBRID INPUT)
+# SESSION STATE (HYBRID INPUT CORE)
 #━━━━━━━━━━━━━━━━━━━
 for key in ["entry","sl","target"]:
     if key not in st.session_state:
@@ -24,7 +24,7 @@ for key in ["entry","sl","target"]:
 mode = st.radio("Mode", ["Range","Breakout","Opening"], horizontal=True)
 
 #━━━━━━━━━━━━━━━━━━━
-# QUICK INPUT
+# QUICK INPUT (VOICE/TEXT)
 #━━━━━━━━━━━━━━━━━━━
 quick_input = st.text_input(
     "🎤 Quick Input (Voice/Text)",
@@ -32,7 +32,7 @@ quick_input = st.text_input(
 )
 
 #━━━━━━━━━━━━━━━━━━━
-# PARSER
+# SMART PARSER
 #━━━━━━━━━━━━━━━━━━━
 def extract_trade_levels(text):
     text = text.lower()
@@ -75,65 +75,9 @@ if quick_input:
         st.session_state.target = t
 
 #━━━━━━━━━━━━━━━━━━━
-# PLAN (STRUCTURED)
+# PLAN
 #━━━━━━━━━━━━━━━━━━━
-st.markdown("### 🧠 Structured Plan")
-
-c1, c2 = st.columns(2)
-
-with c1:
-    setup = st.selectbox("Setup", ["Breakout","Pullback","Reversal","Range","Other"])
-    trigger = st.text_input("Trigger")
-
-with c2:
-    confirm = st.text_input("Confirmation")
-    risk_note = st.text_input("Risk Note")
-
-#━━━━━━━━━━━━━━━━━━━
-# OPTIONAL CRT PLAN
-#━━━━━━━━━━━━━━━━━━━
-use_crt = st.checkbox("Use CRT Plan")
-
-if use_crt:
-
-    st.markdown("### 🧠 CRT Plan")
-
-    c1, c2 = st.columns(2)
-
-    with c1:
-        key_level = st.number_input("Key Level", value=0.0)
-        bias = st.selectbox("Bias", [
-            "Above Buy / Below Sell",
-            "Above Sell / Below Buy"
-        ])
-
-    with c2:
-        context = st.selectbox("Context", [
-            "Trending","Accumulation","Distribution","Range","Manipulation"
-        ])
-
-        event = st.selectbox("Event", [
-            "Sweep","Breakout","Retest","Liquidity Grab","Rejection"
-        ])
-
-    use_range = st.checkbox("Use Entry Range")
-
-    if use_range:
-        c1, c2 = st.columns(2)
-        entry_low = c1.number_input("Entry Low", value=0.0)
-        entry_high = c2.number_input("Entry High", value=0.0)
-    else:
-        entry_low, entry_high = None, None
-
-    st.info(f"Key level {key_level}, {context}, {event}, Bias: {bias}")
-
-else:
-    key_level = None
-    bias = None
-    context = None
-    event = None
-    entry_low = None
-    entry_high = None
+plan = st.text_area("🧠 Plan", height=70)
 
 #━━━━━━━━━━━━━━━━━━━
 # TSL
@@ -141,7 +85,7 @@ else:
 tsl = st.checkbox("TSL Flip Required")
 
 #━━━━━━━━━━━━━━━━━━━
-# INPUTS (MODE BASED)
+# INPUTS
 #━━━━━━━━━━━━━━━━━━━
 if mode == "Range":
     cons = st.selectbox("Cons", ["No","Yes","1T","2T","3T"])
@@ -158,12 +102,15 @@ else:
     gap = st.selectbox("Gap", ["Up","Down","None"])
 
 #━━━━━━━━━━━━━━━━━━━
-# TRADE LEVELS (HYBRID)
+# TRADE LEVELS (HYBRID INPUT)
 #━━━━━━━━━━━━━━━━━━━
 entry = st.number_input("Entry", key="entry")
 sl = st.number_input("Stop Loss", key="sl")
 target = st.number_input("Target", key="target")
 
+#━━━━━━━━━━━━━━━━━━━
+# SHOW DETECTED VALUES
+#━━━━━━━━━━━━━━━━━━━
 if quick_input:
     st.caption(f"Detected → Entry: {entry}, SL: {sl}, Target: {target}")
 
@@ -210,9 +157,14 @@ if st.button("🚀 Evaluate Trade"):
     st.write(f"Score: {score} | RR: {round(rr,2)}")
 
     follow = st.radio("Follow Trade?", ["Yes","No"], horizontal=True)
+
+    #━━━━━━━━ OUTCOME
     outcome = st.radio("Outcome", ["Win","Loss","BE"], horizontal=True)
+
+    #━━━━━━━━ REVIEW
     review = st.text_area("🔍 Review", height=70)
 
+    #━━━━━━━━ FILE MODE
     sim_mode = st.session_state.get("sim_mode", True)
     file_name = "simulation_trades.csv" if sim_mode else "live_trades.csv"
 
@@ -224,21 +176,7 @@ if st.button("🚀 Evaluate Trade"):
         "RR": rr,
         "Followed": follow,
         "Outcome": outcome,
-
-        # structured plan
-        "Setup": setup,
-        "Trigger": trigger,
-        "Confirmation": confirm,
-        "RiskNote": risk_note,
-
-        # CRT optional
-        "KeyLevel": key_level,
-        "Bias": bias,
-        "Context": context,
-        "Event": event,
-        "EntryLow": entry_low,
-        "EntryHigh": entry_high,
-
+        "Plan": plan,
         "Review": review
     }
 
@@ -255,7 +193,7 @@ if st.button("🚀 Evaluate Trade"):
     st.success("Saved ✅")
 
 #━━━━━━━━━━━━━━━━━━━
-# CONTROLS
+# BOTTOM CONTROLS
 #━━━━━━━━━━━━━━━━━━━
 st.markdown("---")
 
