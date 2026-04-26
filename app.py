@@ -2,21 +2,13 @@ import streamlit as st
 import pandas as pd
 from datetime import datetime
 import os
-import re
 
 st.set_page_config(layout="centered")
 
 #━━━━━━━━━━━━━━━━━━━
-# HEADER
+# MINIMAL HEADER
 #━━━━━━━━━━━━━━━━━━━
 st.markdown("## 📱 Trading Copilot")
-
-#━━━━━━━━━━━━━━━━━━━
-# SESSION STATE (HYBRID INPUT CORE)
-#━━━━━━━━━━━━━━━━━━━
-for key in ["entry","sl","target"]:
-    if key not in st.session_state:
-        st.session_state[key] = 0.0
 
 #━━━━━━━━━━━━━━━━━━━
 # MODE
@@ -24,60 +16,29 @@ for key in ["entry","sl","target"]:
 mode = st.radio("Mode", ["Range","Breakout","Opening"], horizontal=True)
 
 #━━━━━━━━━━━━━━━━━━━
-# QUICK INPUT (VOICE/TEXT)
+# 🧠 PLAN (CRT SINGLE BOX)
 #━━━━━━━━━━━━━━━━━━━
-quick_input = st.text_input(
-    "🎤 Quick Input (Voice/Text)",
-    placeholder="Buy 210 SL 205 Target 230"
+st.markdown("### 🧠 Plan (CRT)")
+
+plan_text = st.text_area(
+    "",
+    value="Bias:\nKey Levels:\nHTF Trend:",
+    height=90
 )
 
 #━━━━━━━━━━━━━━━━━━━
-# SMART PARSER
+# OPTIONAL: EXTRACT STRUCTURE
 #━━━━━━━━━━━━━━━━━━━
-def extract_trade_levels(text):
-    text = text.lower()
+def extract_plan(plan_text):
+    lines = plan_text.split("\n")
 
-    numbers = list(map(float, re.findall(r"\d+\.?\d*", text)))
+    bias = lines[0].replace("Bias:", "").strip() if len(lines) > 0 else ""
+    levels = lines[1].replace("Key Levels:", "").strip() if len(lines) > 1 else ""
+    htf = lines[2].replace("HTF Trend:", "").strip() if len(lines) > 2 else ""
 
-    entry = None
-    sl = None
-    target = None
+    return bias, levels, htf
 
-    sl_match = re.search(r"(sl|stop|stoploss)[^\d]*(\d+\.?\d*)", text)
-    if sl_match:
-        sl = float(sl_match.group(2))
-
-    tgt_match = re.search(r"(target|tgt|tp)[^\d]*(\d+\.?\d*)", text)
-    if tgt_match:
-        target = float(tgt_match.group(2))
-
-    used = {sl, target}
-    for n in numbers:
-        if n not in used:
-            entry = n
-            break
-
-    return entry, sl, target
-
-#━━━━━━━━━━━━━━━━━━━
-# APPLY PARSED VALUES (SAFE)
-#━━━━━━━━━━━━━━━━━━━
-if quick_input:
-    e, s, t = extract_trade_levels(quick_input)
-
-    if e is not None and st.session_state.entry == 0.0:
-        st.session_state.entry = e
-
-    if s is not None and st.session_state.sl == 0.0:
-        st.session_state.sl = s
-
-    if t is not None and st.session_state.target == 0.0:
-        st.session_state.target = t
-
-#━━━━━━━━━━━━━━━━━━━
-# PLAN
-#━━━━━━━━━━━━━━━━━━━
-plan = st.text_area("🧠 Plan", height=70)
+bias_plan, key_levels_plan, htf_trend = extract_plan(plan_text)
 
 #━━━━━━━━━━━━━━━━━━━
 # TSL
@@ -102,17 +63,11 @@ else:
     gap = st.selectbox("Gap", ["Up","Down","None"])
 
 #━━━━━━━━━━━━━━━━━━━
-# TRADE LEVELS (HYBRID INPUT)
+# TRADE LEVELS
 #━━━━━━━━━━━━━━━━━━━
-entry = st.number_input("Entry", key="entry")
-sl = st.number_input("Stop Loss", key="sl")
-target = st.number_input("Target", key="target")
-
-#━━━━━━━━━━━━━━━━━━━
-# SHOW DETECTED VALUES
-#━━━━━━━━━━━━━━━━━━━
-if quick_input:
-    st.caption(f"Detected → Entry: {entry}, SL: {sl}, Target: {target}")
+entry = st.number_input("Entry", value=0.0)
+sl = st.number_input("Stop Loss", value=0.0)
+target = st.number_input("Target", value=0.0)
 
 #━━━━━━━━━━━━━━━━━━━
 # EVALUATE
@@ -158,13 +113,11 @@ if st.button("🚀 Evaluate Trade"):
 
     follow = st.radio("Follow Trade?", ["Yes","No"], horizontal=True)
 
-    #━━━━━━━━ OUTCOME
+    # Outcome (important for analytics)
     outcome = st.radio("Outcome", ["Win","Loss","BE"], horizontal=True)
 
-    #━━━━━━━━ REVIEW
     review = st.text_area("🔍 Review", height=70)
 
-    #━━━━━━━━ FILE MODE
     sim_mode = st.session_state.get("sim_mode", True)
     file_name = "simulation_trades.csv" if sim_mode else "live_trades.csv"
 
@@ -176,7 +129,13 @@ if st.button("🚀 Evaluate Trade"):
         "RR": rr,
         "Followed": follow,
         "Outcome": outcome,
-        "Plan": plan,
+
+        # PLAN (single + structured)
+        "Plan": plan_text,
+        "BiasPlan": bias_plan,
+        "KeyLevelsPlan": key_levels_plan,
+        "HTFTrend": htf_trend,
+
         "Review": review
     }
 
@@ -193,7 +152,7 @@ if st.button("🚀 Evaluate Trade"):
     st.success("Saved ✅")
 
 #━━━━━━━━━━━━━━━━━━━
-# BOTTOM CONTROLS
+# CONTROLS
 #━━━━━━━━━━━━━━━━━━━
 st.markdown("---")
 
