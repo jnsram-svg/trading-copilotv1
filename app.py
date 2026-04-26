@@ -157,46 +157,34 @@ st.number_input("Target", key="target")
 st.number_input("Exit", key="exit")
 
 #━━━━━━━━━━━━━━━━━━━
-# 🔥 SCORING (MAPPING BASED)
+# 🔥 PURE SCORING (NO ACCUMULATION)
 #━━━━━━━━━━━━━━━━━━━
-score = 0
-
 if st.session_state.tsl == "No":
+    score = 0
     decision = "NO TRADE"
 
 else:
     if mode == "Range":
-
-        cons_score = {"No":0,"Yes":1,"1T":1,"2T":2,"3T":3}
-        bb_score = {"No":0,"Yes":1}
-        retr_score = {"No":0,"0.6":1,"0.78":2}
-
-        score += cons_score.get(st.session_state.cons, 0)
-        score += bb_score.get(st.session_state.bb, 0)
-        score += retr_score.get(st.session_state.retr, 0)
+        score = (
+            {"No":0,"Yes":1,"1T":1,"2T":2,"3T":3}.get(st.session_state.cons, 0)
+            + {"No":0,"Yes":1}.get(st.session_state.bb, 0)
+            + {"No":0,"0.6":1,"0.78":2}.get(st.session_state.retr, 0)
+        )
 
     elif mode == "Breakout":
-
-        tl_score = {"No":0,"Yes":2}
-        sq_score = {"No":0,"Yes":2}
-        htf_score = {"Neutral":0,"Above 0.786":1,"Below 0.214":1}
-
-        score += tl_score.get(st.session_state.tl, 0)
-        score += sq_score.get(st.session_state.sq, 0)
-        score += htf_score.get(st.session_state.htf, 0)
+        score = (
+            {"No":0,"Yes":2}.get(st.session_state.tl, 0)
+            + {"No":0,"Yes":2}.get(st.session_state.sq, 0)
+            + {"Neutral":0,"Above 0.786":1,"Below 0.214":1}.get(st.session_state.htf, 0)
+        )
 
     else:
-
-        opening_score = {
+        score = {
             ("Buy","Up"):3,
             ("Buy","Down"):2,
             ("Sell","Down"):3,
             ("Sell","Up"):2
-        }
-
-        score += opening_score.get(
-            (st.session_state.prev, st.session_state.gap), 0
-        )
+        }.get((st.session_state.prev, st.session_state.gap), 0)
 
     decision = "STRONG" if score >= 6 else "MODERATE" if score >= 3 else "NO TRADE"
 
