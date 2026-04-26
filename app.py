@@ -5,7 +5,7 @@ from datetime import datetime
 st.set_page_config(layout="wide")
 
 #━━━━━━━━━━━━━━━━━━━
-# 🎨 STYLE (FIX OVERLAP + STICKY BAR)
+# 🎨 STYLE
 #━━━━━━━━━━━━━━━━━━━
 st.markdown("""
 <style>
@@ -30,15 +30,6 @@ header {visibility: hidden;}
     border-bottom: 1px solid #2a2f3a;
 }
 
-/* Touch-friendly inputs */
-div[data-baseweb="select"] > div {
-    min-height: 45px;
-}
-
-input {
-    min-height: 40px;
-}
-
 /* Cards */
 .card {
     background-color: #111827;
@@ -49,8 +40,8 @@ input {
 
 /* Summary */
 .summary-box {
-    padding: 12px;
-    border-radius: 10px;
+    padding: 8px;
+    border-radius: 8px;
     text-align: center;
     border: 1px solid #333;
 }
@@ -59,7 +50,7 @@ input {
 .yellow {color:#ffaa00;}
 .red {color:#ff4d4d;}
 
-.small {font-size: 0.8rem;}
+.small {font-size: 0.75rem;}
 
 </style>
 """, unsafe_allow_html=True)
@@ -73,11 +64,11 @@ if "score" not in st.session_state:
     st.session_state.score = 0
 
 #━━━━━━━━━━━━━━━━━━━
-# 🔝 STICKY TOP BAR
+# 🔝 STICKY TOP BAR + SUMMARY
 #━━━━━━━━━━━━━━━━━━━
 st.markdown('<div class="top-bar">', unsafe_allow_html=True)
 
-c1, c2, c3 = st.columns([1,2,1])
+c1, c2, c3, c4 = st.columns([1,2,1,1.2])
 
 with c1:
     tsl_flip = st.selectbox("TSL", ["Yes","No"])
@@ -87,6 +78,20 @@ with c2:
 
 with c3:
     sim_mode = st.toggle("Sim", True)
+
+# 👉 SUMMARY HERE
+with c4:
+    decision = st.session_state.decision
+    score = st.session_state.score
+
+    color = "green" if decision=="STRONG" else "yellow" if decision=="MODERATE" else "red"
+
+    st.markdown(f"""
+    <div class="summary-box">
+        <div class="{color}" style="font-size:16px;">{decision}</div>
+        <div class="small">Score: {score}</div>
+    </div>
+    """, unsafe_allow_html=True)
 
 st.markdown('</div>', unsafe_allow_html=True)
 
@@ -117,52 +122,8 @@ with left:
 
     st.markdown('</div>', unsafe_allow_html=True)
 
-# RIGHT SIDE (SUMMARY)
+# RIGHT SIDE (NOTE ONLY NOW)
 with right:
-
-    score = 0
-
-    if tsl_flip == "No":
-        decision = "NO TRADE"
-    else:
-        if mode == "Range":
-            if cons == "3T": score += 3
-            elif cons == "2T": score += 2
-            elif cons == "Yes": score += 1
-            if bb == "Yes": score += 1
-            if retr == "0.78": score += 2
-            elif retr == "0.6": score += 1
-
-        elif mode == "Breakout":
-            if tl == "Yes": score += 2
-            if sq == "Yes": score += 2
-            if htf != "Neutral": score += 1
-
-        else:
-            if prev == "Buy" and gap == "Up": score += 3
-            elif prev == "Buy" and gap == "Down": score += 2
-            elif prev == "Sell" and gap == "Down": score += 3
-            elif prev == "Sell" and gap == "Up": score += 2
-
-        if score >= 6:
-            decision = "STRONG"
-        elif score >= 3:
-            decision = "MODERATE"
-        else:
-            decision = "NO TRADE"
-
-    st.session_state.score = score
-    st.session_state.decision = decision
-
-    color = "green" if decision=="STRONG" else "yellow" if decision=="MODERATE" else "red"
-
-    st.markdown(f"""
-    <div class="summary-box">
-        <div class="{color}" style="font-size:22px;">{decision}</div>
-        <div class="small">Score: {score}</div>
-    </div>
-    """, unsafe_allow_html=True)
-
     note = st.text_area("Note", height=120)
 
 #━━━━━━━━━━━━━━━━━━━
@@ -177,6 +138,43 @@ target = c2.number_input("Target")
 c1, c2 = st.columns(2)
 sl = c1.number_input("SL")
 exit_price = c2.number_input("Exit")
+
+#━━━━━━━━━━━━━━━━━━━
+# AUTO EVALUATION
+#━━━━━━━━━━━━━━━━━━━
+score = 0
+
+if tsl_flip == "No":
+    decision = "NO TRADE"
+else:
+    if mode == "Range":
+        if cons == "3T": score += 3
+        elif cons == "2T": score += 2
+        elif cons == "Yes": score += 1
+        if bb == "Yes": score += 1
+        if retr == "0.78": score += 2
+        elif retr == "0.6": score += 1
+
+    elif mode == "Breakout":
+        if tl == "Yes": score += 2
+        if sq == "Yes": score += 2
+        if htf != "Neutral": score += 1
+
+    else:
+        if prev == "Buy" and gap == "Up": score += 3
+        elif prev == "Buy" and gap == "Down": score += 2
+        elif prev == "Sell" and gap == "Down": score += 3
+        elif prev == "Sell" and gap == "Up": score += 2
+
+    if score >= 6:
+        decision = "STRONG"
+    elif score >= 3:
+        decision = "MODERATE"
+    else:
+        decision = "NO TRADE"
+
+st.session_state.score = score
+st.session_state.decision = decision
 
 #━━━━━━━━━━━━━━━━━━━
 # RESULT
@@ -252,7 +250,6 @@ try:
     win_rate = (wins / closed * 100) if closed else 0
 
     st.write(f"Trades: {len(df)} | Win%: {round(win_rate,1)}")
-
     st.dataframe(df.tail(10), use_container_width=True)
 
 except:
