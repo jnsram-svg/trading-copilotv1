@@ -10,23 +10,41 @@ DRAFT_FILE = "draft_state.csv"
 DATA_FILE = "simulation_trades.csv"
 
 #━━━━━━━━━━━━━━━━━━━
-# HEADER
-#━━━━━━━━━━━━━━━━━━━
-st.markdown("## 📱 Trading Copilot")
-
-#━━━━━━━━━━━━━━━━━━━
 # SESSION STATE DEFAULTS
 #━━━━━━━━━━━━━━━━━━━
 defaults = {
     "entry": 0.0,
     "sl": 0.0,
     "target": 0.0,
-    "plan_text": "Bias: \nKey Levels: \nHTF Trend: "
+    "plan_text": "Bias: \nKey Levels: \nHTF Trend: ",
+    "load_draft_flag": False,
+    "_draft_temp": {}
 }
 
 for k, v in defaults.items():
     if k not in st.session_state:
         st.session_state[k] = v
+
+#━━━━━━━━━━━━━━━━━━━
+# APPLY DRAFT BEFORE UI (CRITICAL FIX)
+#━━━━━━━━━━━━━━━━━━━
+if st.session_state.get("load_draft_flag", False):
+    draft = st.session_state.get("_draft_temp", {})
+
+    st.session_state.entry = float(draft.get("entry", 0.0))
+    st.session_state.sl = float(draft.get("sl", 0.0))
+    st.session_state.target = float(draft.get("target", 0.0))
+    st.session_state.plan_text = draft.get(
+        "plan_text",
+        "Bias: \nKey Levels: \nHTF Trend: "
+    )
+
+    st.session_state.load_draft_flag = False
+
+#━━━━━━━━━━━━━━━━━━━
+# HEADER
+#━━━━━━━━━━━━━━━━━━━
+st.markdown("## 📱 Trading Copilot")
 
 #━━━━━━━━━━━━━━━━━━━
 # MODE
@@ -49,7 +67,7 @@ def extract_plan(plan_text):
 bias_plan, key_levels_plan, htf_trend = extract_plan(plan_text)
 
 #━━━━━━━━━━━━━━━━━━━
-# VOICE INPUT
+# VOICE INPUT (ENTRY/SL/TARGET ONLY)
 #━━━━━━━━━━━━━━━━━━━
 voice_input = st.text_input("🎤 Voice Input (Buy 210 SL 205 Target 230)")
 
@@ -204,7 +222,7 @@ if st.button("🗑 Clear Simulation Data"):
         st.info("No data found")
 
 #━━━━━━━━━━━━━━━━━━━
-# 💾 DRAFT CONTROLS (MOVED HERE)
+# DRAFT CONTROLS (BOTTOM)
 #━━━━━━━━━━━━━━━━━━━
 st.markdown("### 💾 Draft Controls")
 
@@ -225,16 +243,9 @@ with c2:
     if st.button("📂 Load Draft"):
         if os.path.exists(DRAFT_FILE):
             draft = pd.read_csv(DRAFT_FILE).iloc[0]
-
-            st.session_state.entry = float(draft["entry"])
-            st.session_state.sl = float(draft["sl"])
-            st.session_state.target = float(draft["target"])
-            st.session_state.plan_text = draft["plan_text"]
-
-            st.success("Draft loaded ✔")
-
-            st.rerun()  # critical fix
-
+            st.session_state._draft_temp = draft.to_dict()
+            st.session_state.load_draft_flag = True
+            st.rerun()
         else:
             st.warning("No draft found")
 
