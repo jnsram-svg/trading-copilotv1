@@ -5,9 +5,9 @@ from datetime import datetime
 st.set_page_config(layout="centered")
 
 #━━━━━━━━━━━━━━━━━━━
-# MOBILE TOGGLE (can remove later)
+# FORCE MOBILE MODE
 #━━━━━━━━━━━━━━━━━━━
-is_mobile = st.checkbox("Mobile View", value=True)
+is_mobile = True
 
 #━━━━━━━━━━━━━━━━━━━
 # SESSION
@@ -18,27 +18,18 @@ if "score" not in st.session_state:
     st.session_state.score = 0
 
 #━━━━━━━━━━━━━━━━━━━
-# TOP LAYOUT
+# TOP SECTION (STACKED FOR MOBILE)
 #━━━━━━━━━━━━━━━━━━━
-if not is_mobile:
-    colL, colM, colR = st.columns(3)
-else:
-    colL = st.container()
-    colM = st.container()
-    colR = st.container()
+st.markdown("### Trade Setup")
 
-# LEFT
-with colL:
-    trade_type = st.radio("Trade", ["TSL", "Opening"])
+trade_type = st.radio("Trade", ["TSL", "Opening"])
 
-    if trade_type == "TSL":
-        tsl_flip = st.checkbox("TSL Flip")
-        mode = st.radio("Setup", ["Range", "Breakout"])
+if trade_type == "TSL":
+    tsl_flip = st.checkbox("TSL Flip")
+    mode = st.radio("Setup", ["Range", "Breakout"])
 
-# RIGHT
-with colR:
-    sim_mode = st.checkbox("Sim Mode", True)
-    review = st.text_area("Note", height=120 if is_mobile else 160)
+sim_mode = st.checkbox("Sim Mode", True)
+review = st.text_area("Note", height=120)
 
 file_name = "simulation_trades.csv" if sim_mode else "live_trades.csv"
 
@@ -47,46 +38,28 @@ file_name = "simulation_trades.csv" if sim_mode else "live_trades.csv"
 #━━━━━━━━━━━━━━━━━━━
 if trade_type == "TSL":
 
-    if not is_mobile:
-        c1, c2, c3 = st.columns(3)
-    else:
-        c1 = st.container()
-        c2 = st.container()
-        c3 = st.container()
-
     if mode == "Range":
-        cons = c1.selectbox("Consolidation", ["No","Yes","2T","3T"], key="cons")
-        bb = c2.selectbox("Bollinger", ["Yes","No"], key="bb")
-        retr = c3.selectbox("Retracement", ["No","0.6","0.78"], key="retr")
+        cons = st.selectbox("Consolidation", ["No","Yes","2T","3T"])
+        bb = st.selectbox("Bollinger", ["Yes","No"])
+        retr = st.selectbox("Retracement", ["No","0.6","0.78"])
 
     else:
-        tl = c1.selectbox("Trendline", ["No","Yes"], key="tl")
-        sq = c2.selectbox("Squeeze", ["Yes","No"], key="sq")
-        htf = c3.selectbox("HTF", ["Above 0.786","Below 0.214","Neutral"], key="htf")
+        tl = st.selectbox("Trendline", ["No","Yes"])
+        sq = st.selectbox("Squeeze", ["Yes","No"])
+        htf = st.selectbox("HTF", ["Above 0.786","Below 0.214","Neutral"])
 
 else:
-    if not is_mobile:
-        c1, c2 = st.columns(2)
-    else:
-        c1 = st.container()
-        c2 = st.container()
-
-    prev = c1.selectbox("Prev", ["Buy","Sell"], key="prev")
-    gap = c2.selectbox("Gap", ["Up","Down","None"], key="gap")
+    prev = st.selectbox("Prev", ["Buy","Sell"])
+    gap = st.selectbox("Gap", ["Up","Down","None"])
 
 #━━━━━━━━━━━━━━━━━━━
 # TRADE INPUT
 #━━━━━━━━━━━━━━━━━━━
-if not is_mobile:
-    c1, c2, c3 = st.columns(3)
-else:
-    c1 = st.container()
-    c2 = st.container()
-    c3 = st.container()
+st.markdown("### Trade Levels")
 
-entry = c1.number_input("Entry")
-sl = c2.number_input("SL")
-target = c3.number_input("Target")
+entry = st.number_input("Entry")
+sl = st.number_input("SL")
+target = st.number_input("Target")
 
 exit_price = st.number_input("Exit")
 
@@ -135,19 +108,19 @@ else:
     st.session_state.decision = "NO TRADE"
 
 #━━━━━━━━━━━━━━━━━━━
-# SUMMARY
+# SUMMARY (CLEAR BLOCK)
 #━━━━━━━━━━━━━━━━━━━
-with colM:
-    st.markdown("**Summary**")
-    st.markdown(f"**{st.session_state.decision}**")
-    st.caption(f"Score: {st.session_state.score}")
+st.markdown("### Summary")
 
-    if entry and sl and target and entry != sl:
-        rr = abs(target - entry) / abs(entry - sl)
-        st.caption(f"RR: {round(rr,2)}")
+st.markdown(f"**Decision: {st.session_state.decision}**")
+st.write(f"Score: {st.session_state.score}")
 
-        if rr < 1:
-            st.warning("Low RR")
+if entry and sl and target and entry != sl:
+    rr = abs(target - entry) / abs(entry - sl)
+    st.write(f"RR: {round(rr,2)}")
+
+    if rr < 1:
+        st.warning("Low RR")
 
 #━━━━━━━━━━━━━━━━━━━
 # RESULT
