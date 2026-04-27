@@ -26,34 +26,7 @@ mode = st.radio("Mode", ["Range","Breakout","Opening"], horizontal=True)
 #━━━━━━━━━━━━━━━━━━━
 # QUICK INPUT
 #━━━━━━━━━━━━━━━━━━━
-quick_input = st.text_input("🎤 Quick Input", placeholder="Buy 210 SL 205 Target 230")
-
-def extract_trade_levels(text):
-    text = text.lower()
-    numbers = list(map(float, re.findall(r"\d+\.?\d*", text)))
-
-    entry = sl = target = None
-
-    sl_match = re.search(r"(sl|stop)[^\d]*(\d+\.?\d*)", text)
-    if sl_match:
-        sl = float(sl_match.group(2))
-
-    tgt_match = re.search(r"(target|tgt|tp)[^\d]*(\d+\.?\d*)", text)
-    if tgt_match:
-        target = float(tgt_match.group(2))
-
-    used = {sl, target}
-    for n in numbers:
-        if n not in used:
-            entry = n
-            break
-
-    return entry, sl, target
-
-if quick_input:
-    e, s, t = extract_trade_levels(quick_input)
-    if e and st.session_state.entry == 0.0:
-        st.session_state.entry = e
+quick_input = st.text_input("🎤 Quick Input", placeholder="Buy 210")
 
 #━━━━━━━━━━━━━━━━━━━
 # PLAN
@@ -83,127 +56,97 @@ else:
     gap = st.selectbox("Gap", ["Up","Down","None"])
 
 #━━━━━━━━━━━━━━━━━━━
-# ENTRY
+# ENTRY (optional tracking only)
 #━━━━━━━━━━━━━━━━━━━
-entry = st.number_input("Entry", key="entry")
+entry = st.number_input("Entry (optional)", key="entry")
 
 #━━━━━━━━━━━━━━━━━━━
-# 🧭 REQUIRED INPUTS (TRAINER MODE)
+# 🎯 SL & TARGET OPTIONS ENGINE
 #━━━━━━━━━━━━━━━━━━━
-st.markdown("### 🧭 Required Inputs")
+st.markdown("### 🎯 SL & Target Options")
 
-range_low = range_high = prev_mean = 0
-bcl = bch = 0
-first_low = first_high = 0
+sl_options = []
+target_options = []
 
+#━━━━━━━━ RANGE (TSL BASED)
 if mode == "Range" and tsl:
-    st.info("Feed: Range Low + Range High + Previous Range Mean")
 
-    range_low = st.number_input("Range Low")
-    range_high = st.number_input("Range High")
-    prev_mean = st.number_input("Previous Range Mean")
+    sl_options = [
+        "Range Low (broken level during TSL flip)"
+    ]
 
+    target_options = [
+        "Previous Range Mean"
+    ]
+
+    if retr in ["0.6", "0.78"]:
+        target_options.append("0.384 Retracement Level")
+        target_options.append("Previous Range High")
+
+    if retr in ["0.6", "0.78"] and bb == "Yes":
+        target_options.append("Range High (extended move)")
+
+#━━━━━━━━ RANGE (NO TSL)
+elif mode == "Range" and not tsl:
+
+    sl_options = [
+        "Range Low (Buy) / Range High (Sell)"
+    ]
+
+    target_options = [
+        "Opposite Range Boundary",
+        "Mid Range (optional partial)"
+    ]
+
+#━━━━━━━━ BREAKOUT
 elif mode == "Breakout":
-    st.info("Feed: Breakout Candle Low / High")
 
-    bcl = st.number_input("Breakout Candle Low")
-    bch = st.number_input("Breakout Candle High")
+    sl_options = [
+        "Breakout Candle Low (Buy)",
+        "Breakout Candle High (Sell)",
+        "Retest Level (advanced)"
+    ]
 
+    if sq == "Yes" and tl == "Yes":
+        target_options = [
+            "3R",
+            "Structure High/Low",
+            "Measured Move / Expansion"
+        ]
+    else:
+        target_options = [
+            "1R",
+            "2R",
+            "Structure High/Low"
+        ]
+
+#━━━━━━━━ OPENING
 elif mode == "Opening":
-    st.info("Feed: First 5-min Candle Levels")
 
-    first_low = st.number_input("First Candle Low")
-    first_high = st.number_input("First Candle High")
+    sl_options = [
+        "First 5-min Candle Low (Buy)",
+        "First 5-min Candle High (Sell)"
+    ]
 
-#━━━━━━━━━━━━━━━━━━━
-# 🔥 RULE ENGINE
-#━━━━━━━━━━━━━━━━━━━
-def derive_sl_target(mode, entry, tsl,
-                     cons=None, bb=None, retr=None,
-                     tl=None, sq=None, htf=None,
-                     prev=None, gap=None,
-                     range_low=0, range_high=0, prev_mean=0,
-                     bcl=0, bch=0,
-                     first_low=0, first_high=0):
+    if (prev == "Buy" and gap == "Up") or (prev == "Sell" and gap == "Down"):
+        target_options = [
+            "1.5R",
+            "Structure Continuation"
+        ]
+    else:
+        target_options = [
+            "1R",
+            "Gap Fill (if applicable)"
+        ]
 
-    sl = 0
-    target = 0
+#━━━━━━━━ DISPLAY OPTIONS
+st.markdown("#### 🔻 SL Options")
+for opt in sl_options:
+    st.write(f"• {opt}")
 
-    #━━━━━━━━ RANGE (TSL LOGIC)
-    if mode == "Range" and tsl:
-
-        if range_low > 0 and prev_mean > 0:
-
-            sl = range_low
-            target = prev_mean
-
-            # Retracement → 0.384 logic
-            if retr in ["0.6", "0.78"] and range_high > 0:
-                target = range_low + (range_high - range_low) * 0.384
-
-            # Strong → extend
-            if retr in ["0.6", "0.78"] and bb == "Yes":
-                target = range_high
-
-    #━━━━━━━━ BREAKOUT
-    elif mode == "Breakout":
-
-        if bcl > 0 or bch > 0:
-
-            sl = bcl if entry > bcl else bch
-            risk = abs(entry - sl)
-
-            if sq == "Yes" and tl == "Yes":
-                target = entry + 3 * risk
-            else:
-                target = entry + 2 * risk
-
-    #━━━━━━━━ OPENING
-    elif mode == "Opening":
-
-        if first_low > 0 or first_high > 0:
-
-            if entry > first_low:
-                sl = first_low
-                risk = entry - sl
-                target = entry + (1.5 * risk if (prev=="Buy" and gap=="Up") else 1*risk)
-
-            else:
-                sl = first_high
-                risk = sl - entry
-                target = entry - (1.5 * risk if (prev=="Sell" and gap=="Down") else 1*risk)
-
-    return round(sl,2), round(target,2)
-
-#━━━━━━━━━━━━━━━━━━━
-# AUTO APPLY
-#━━━━━━━━━━━━━━━━━━━
-if entry > 0:
-
-    sl_auto, target_auto = derive_sl_target(
-        mode, entry, tsl,
-        cons if mode=="Range" else None,
-        bb if mode=="Range" else None,
-        retr if mode=="Range" else None,
-        tl if mode=="Breakout" else None,
-        sq if mode=="Breakout" else None,
-        htf if mode=="Breakout" else None,
-        prev if mode=="Opening" else None,
-        gap if mode=="Opening" else None,
-        range_low, range_high, prev_mean,
-        bcl, bch,
-        first_low, first_high
-    )
-
-    if sl_auto > 0:
-        st.session_state.sl = sl_auto
-        st.session_state.target = target_auto
-
-#━━━━━━━━━━━━━━━━━━━
-# FINAL LEVELS
-#━━━━━━━━━━━━━━━━━━━
-sl = st.number_input("Stop Loss", key="sl")
-target = st.number_input("Target", key="target")
+st.markdown("#### 🎯 Target Options")
+for opt in target_options:
+    st.write(f"• {opt}")
 
 #━━━━━━━━━━━━━━━━━━━
 # EVALUATE
@@ -237,14 +180,10 @@ if st.button("🚀 Evaluate Trade"):
     else:
         st.warning("TSL not satisfied → No Trade")
 
-    risk = abs(entry - sl)
-    reward = abs(target - entry)
-    rr = reward / risk if risk != 0 else 0
-
     decision = "STRONG" if score >= 6 else "MODERATE" if score >= 3 else "NO TRADE"
 
     st.markdown(f"### {decision}")
-    st.write(f"Score: {score} | RR: {round(rr,2)}")
+    st.write(f"Score: {score}")
 
     outcome = st.radio("Outcome", ["Win","Loss","BE"], horizontal=True)
     review = st.text_area("🔍 Review", height=60)
@@ -256,7 +195,6 @@ if st.button("🚀 Evaluate Trade"):
         "Mode": mode,
         "Score": score,
         "Decision": decision,
-        "RR": rr,
         "Outcome": outcome,
         "Plan": plan,
         "Review": review
