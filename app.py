@@ -26,10 +26,7 @@ mode = st.radio("Mode", ["Range","Breakout","Opening"], horizontal=True)
 #━━━━━━━━━━━━━━━━━━━
 # QUICK INPUT
 #━━━━━━━━━━━━━━━━━━━
-quick_input = st.text_input(
-    "🎤 Quick Input",
-    placeholder="Buy 210 SL 205 Target 230"
-)
+quick_input = st.text_input("🎤 Quick Input", placeholder="Buy 210 SL 205 Target 230")
 
 #━━━━━━━━━━━━━━━━━━━
 # PARSER
@@ -60,10 +57,6 @@ if quick_input:
     e, s, t = extract_trade_levels(quick_input)
     if e and st.session_state.entry == 0.0:
         st.session_state.entry = e
-    if s and st.session_state.sl == 0.0:
-        st.session_state.sl = s
-    if t and st.session_state.target == 0.0:
-        st.session_state.target = t
 
 #━━━━━━━━━━━━━━━━━━━
 # PLAN
@@ -76,7 +69,7 @@ plan = st.text_area("🧠 Plan", height=60)
 tsl = st.toggle("TSL Flip Required")
 
 #━━━━━━━━━━━━━━━━━━━
-# MODE INPUTS (COMPACT)
+# MODE INPUTS
 #━━━━━━━━━━━━━━━━━━━
 if mode == "Range":
     cons = st.selectbox("Cons", ["No","Yes","1T","2T","3T"])
@@ -93,64 +86,82 @@ else:
     gap = st.selectbox("Gap", ["Up","Down","None"])
 
 #━━━━━━━━━━━━━━━━━━━
-# TRADE LEVELS
+# ENTRY
 #━━━━━━━━━━━━━━━━━━━
 entry = st.number_input("Entry", key="entry")
 
 #━━━━━━━━━━━━━━━━━━━
-# 🔥 AUTO SL/TARGET ENGINE
+# 🔥 RULE ENGINE
 #━━━━━━━━━━━━━━━━━━━
-def generate_trade_plan(mode, entry):
-    plans = []
+def derive_sl_target(mode, entry, tsl,
+                     cons=None, bb=None, retr=None,
+                     tl=None, sq=None, htf=None,
+                     prev=None, gap=None):
 
-    if entry == 0:
-        return []
+    sl = 0
+    target = 0
 
-    if mode == "Breakout":
-        sls = [entry - 5, entry - 8]
-    elif mode == "Range":
-        sls = [entry - 4, entry - 7]
-    else:
-        sls = [entry - 6]
+    #━━━━━━━━ RANGE (TSL BASED)
+    if mode == "Range" and tsl:
 
-    for sl in sls:
-        risk = abs(entry - sl)
-        targets = [entry + risk, entry + 2*risk, entry + 3*risk]
+        sl = entry - 5   # placeholder → range low
 
-        for tgt in targets:
-            rr = (tgt - entry) / risk if risk != 0 else 0
-            plans.append({
-                "SL": round(sl,2),
-                "Target": round(tgt,2),
-                "RR": round(rr,2)
-            })
+        # Default → previous mean
+        target = entry + 5
 
-    return plans
+        # Retracement → 0.384
+        if retr in ["0.6", "0.78"]:
+            target = entry + 3
 
-#━━━━━━━━━━━━━━━━━━━
-# GENERATE BUTTON
-#━━━━━━━━━━━━━━━━━━━
-if st.button("⚡ Generate Trade Plan"):
-    plans = generate_trade_plan(mode, entry)
+        # Strong → extend to range high
+        if retr in ["0.6", "0.78"] and bb == "Yes":
+            target = entry + 8
 
-    if plans:
-        df = pd.DataFrame(plans)
+    #━━━━━━━━ BREAKOUT
+    elif mode == "Breakout":
 
-        st.markdown("### 🎯 Suggested Plans")
-        st.dataframe(df, use_container_width=True)
+        sl = entry - 5
 
-        best = df[df["RR"] >= 2]
+        if sq == "Yes" and tl == "Yes":
+            target = entry + 3 * (entry - sl)
+        else:
+            target = entry + 2 * (entry - sl)
 
-        if not best.empty:
-            best_row = best.iloc[0]
-            st.success(
-                f"Best → SL: {best_row['SL']} | Target: {best_row['Target']} | RR: {best_row['RR']}"
-            )
-            st.session_state.sl = best_row["SL"]
-            st.session_state.target = best_row["Target"]
+    #━━━━━━━━ OPENING
+    elif mode == "Opening":
+
+        sl = entry - 4
+
+        if (prev == "Buy" and gap == "Up") or (prev == "Sell" and gap == "Down"):
+            target = entry + 1.5 * (entry - sl)
+        else:
+            target = entry + 1 * (entry - sl)
+
+    return round(sl,2), round(target,2)
 
 #━━━━━━━━━━━━━━━━━━━
-# SHOW FINAL VALUES
+# AUTO APPLY
+#━━━━━━━━━━━━━━━━━━━
+if entry > 0:
+
+    sl_auto, target_auto = derive_sl_target(
+        mode, entry, tsl,
+        cons if mode=="Range" else None,
+        bb if mode=="Range" else None,
+        retr if mode=="Range" else None,
+        tl if mode=="Breakout" else None,
+        sq if mode=="Breakout" else None,
+        htf if mode=="Breakout" else None,
+        prev if mode=="Opening" else None,
+        gap if mode=="Opening" else None
+    )
+
+    if sl_auto > 0:
+        st.session_state.sl = sl_auto
+        st.session_state.target = target_auto
+
+#━━━━━━━━━━━━━━━━━━━
+# FINAL LEVELS
 #━━━━━━━━━━━━━━━━━━━
 sl = st.number_input("Stop Loss", key="sl")
 target = st.number_input("Target", key="target")
