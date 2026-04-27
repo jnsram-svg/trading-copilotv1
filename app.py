@@ -14,7 +14,7 @@ st.markdown("## 📱 Trading Copilot")
 #━━━━━━━━━━━━━━━━━━━
 # SESSION STATE
 #━━━━━━━━━━━━━━━━━━━
-for key in ["entry","sl","target"]:
+for key in ["entry"]:
     if key not in st.session_state:
         st.session_state[key] = 0.0
 
@@ -56,12 +56,12 @@ else:
     gap = st.selectbox("Gap", ["Up","Down","None"])
 
 #━━━━━━━━━━━━━━━━━━━
-# ENTRY (optional tracking only)
+# ENTRY (optional)
 #━━━━━━━━━━━━━━━━━━━
 entry = st.number_input("Entry (optional)", key="entry")
 
 #━━━━━━━━━━━━━━━━━━━
-# 🎯 SL & TARGET OPTIONS ENGINE
+# 🎯 SL & TARGET OPTIONS
 #━━━━━━━━━━━━━━━━━━━
 st.markdown("### 🎯 SL & Target Options")
 
@@ -95,7 +95,7 @@ elif mode == "Range" and not tsl:
 
     target_options = [
         "Opposite Range Boundary",
-        "Mid Range (optional partial)"
+        "Mid Range (optional)"
     ]
 
 #━━━━━━━━ BREAKOUT
@@ -111,7 +111,7 @@ elif mode == "Breakout":
         target_options = [
             "3R",
             "Structure High/Low",
-            "Measured Move / Expansion"
+            "Measured Move"
         ]
     else:
         target_options = [
@@ -139,7 +139,7 @@ elif mode == "Opening":
             "Gap Fill (if applicable)"
         ]
 
-#━━━━━━━━ DISPLAY OPTIONS
+#━━━━━━━━ DISPLAY
 st.markdown("#### 🔻 SL Options")
 for opt in sl_options:
     st.write(f"• {opt}")
@@ -188,7 +188,7 @@ if st.button("🚀 Evaluate Trade"):
     outcome = st.radio("Outcome", ["Win","Loss","BE"], horizontal=True)
     review = st.text_area("🔍 Review", height=60)
 
-    file_name = "simulation_trades.csv"
+    file_name = "simulation_trades.csv" if st.session_state.get("sim_mode", True) else "live_trades.csv"
 
     log = {
         "Time": datetime.now(),
@@ -212,19 +212,43 @@ if st.button("🚀 Evaluate Trade"):
     st.success("Saved ✅")
 
 #━━━━━━━━━━━━━━━━━━━
+# BOTTOM CONTROLS
+#━━━━━━━━━━━━━━━━━━━
+st.markdown("---")
+
+c1, c2 = st.columns(2)
+
+with c1:
+    st.session_state.sim_mode = st.toggle("Simulation Mode", True)
+
+with c2:
+    if st.button("🗑 Clear Simulation Data"):
+        if os.path.exists("simulation_trades.csv"):
+            os.remove("simulation_trades.csv")
+            st.success("Simulation data cleared ✅")
+        else:
+            st.info("No simulation data found")
+
+#━━━━━━━━━━━━━━━━━━━
 # ANALYTICS
 #━━━━━━━━━━━━━━━━━━━
 st.markdown("### 📊 Analytics")
 
+file_name = "simulation_trades.csv" if st.session_state.get("sim_mode", True) else "live_trades.csv"
+
 try:
-    df = pd.read_csv("simulation_trades.csv")
+    df = pd.read_csv(file_name)
 
     total = len(df)
     wins = len(df[df["Outcome"] == "Win"])
     win_rate = round((wins / total)*100, 2) if total > 0 else 0
 
-    st.metric("Trades", total)
-    st.metric("Win %", win_rate)
+    c1, c2, c3 = st.columns(3)
+    c1.metric("Trades", total)
+    c2.metric("Wins", wins)
+    c3.metric("Win %", win_rate)
+
+    st.dataframe(df.tail(10), use_container_width=True)
 
 except:
     st.info("No data yet")
