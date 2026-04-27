@@ -28,9 +28,6 @@ mode = st.radio("Mode", ["Range","Breakout","Opening"], horizontal=True)
 #━━━━━━━━━━━━━━━━━━━
 quick_input = st.text_input("🎤 Quick Input", placeholder="Buy 210 SL 205 Target 230")
 
-#━━━━━━━━━━━━━━━━━━━
-# PARSER
-#━━━━━━━━━━━━━━━━━━━
 def extract_trade_levels(text):
     text = text.lower()
     numbers = list(map(float, re.findall(r"\d+\.?\d*", text)))
@@ -91,51 +88,90 @@ else:
 entry = st.number_input("Entry", key="entry")
 
 #━━━━━━━━━━━━━━━━━━━
+# 🧭 REQUIRED INPUTS (TRAINER MODE)
+#━━━━━━━━━━━━━━━━━━━
+st.markdown("### 🧭 Required Inputs")
+
+range_low = range_high = prev_mean = 0
+bcl = bch = 0
+first_low = first_high = 0
+
+if mode == "Range" and tsl:
+    st.info("Feed: Range Low + Range High + Previous Range Mean")
+
+    range_low = st.number_input("Range Low")
+    range_high = st.number_input("Range High")
+    prev_mean = st.number_input("Previous Range Mean")
+
+elif mode == "Breakout":
+    st.info("Feed: Breakout Candle Low / High")
+
+    bcl = st.number_input("Breakout Candle Low")
+    bch = st.number_input("Breakout Candle High")
+
+elif mode == "Opening":
+    st.info("Feed: First 5-min Candle Levels")
+
+    first_low = st.number_input("First Candle Low")
+    first_high = st.number_input("First Candle High")
+
+#━━━━━━━━━━━━━━━━━━━
 # 🔥 RULE ENGINE
 #━━━━━━━━━━━━━━━━━━━
 def derive_sl_target(mode, entry, tsl,
                      cons=None, bb=None, retr=None,
                      tl=None, sq=None, htf=None,
-                     prev=None, gap=None):
+                     prev=None, gap=None,
+                     range_low=0, range_high=0, prev_mean=0,
+                     bcl=0, bch=0,
+                     first_low=0, first_high=0):
 
     sl = 0
     target = 0
 
-    #━━━━━━━━ RANGE (TSL BASED)
+    #━━━━━━━━ RANGE (TSL LOGIC)
     if mode == "Range" and tsl:
 
-        sl = entry - 5   # placeholder → range low
+        if range_low > 0 and prev_mean > 0:
 
-        # Default → previous mean
-        target = entry + 5
+            sl = range_low
+            target = prev_mean
 
-        # Retracement → 0.384
-        if retr in ["0.6", "0.78"]:
-            target = entry + 3
+            # Retracement → 0.384 logic
+            if retr in ["0.6", "0.78"] and range_high > 0:
+                target = range_low + (range_high - range_low) * 0.384
 
-        # Strong → extend to range high
-        if retr in ["0.6", "0.78"] and bb == "Yes":
-            target = entry + 8
+            # Strong → extend
+            if retr in ["0.6", "0.78"] and bb == "Yes":
+                target = range_high
 
     #━━━━━━━━ BREAKOUT
     elif mode == "Breakout":
 
-        sl = entry - 5
+        if bcl > 0 or bch > 0:
 
-        if sq == "Yes" and tl == "Yes":
-            target = entry + 3 * (entry - sl)
-        else:
-            target = entry + 2 * (entry - sl)
+            sl = bcl if entry > bcl else bch
+            risk = abs(entry - sl)
+
+            if sq == "Yes" and tl == "Yes":
+                target = entry + 3 * risk
+            else:
+                target = entry + 2 * risk
 
     #━━━━━━━━ OPENING
     elif mode == "Opening":
 
-        sl = entry - 4
+        if first_low > 0 or first_high > 0:
 
-        if (prev == "Buy" and gap == "Up") or (prev == "Sell" and gap == "Down"):
-            target = entry + 1.5 * (entry - sl)
-        else:
-            target = entry + 1 * (entry - sl)
+            if entry > first_low:
+                sl = first_low
+                risk = entry - sl
+                target = entry + (1.5 * risk if (prev=="Buy" and gap=="Up") else 1*risk)
+
+            else:
+                sl = first_high
+                risk = sl - entry
+                target = entry - (1.5 * risk if (prev=="Sell" and gap=="Down") else 1*risk)
 
     return round(sl,2), round(target,2)
 
@@ -153,7 +189,10 @@ if entry > 0:
         sq if mode=="Breakout" else None,
         htf if mode=="Breakout" else None,
         prev if mode=="Opening" else None,
-        gap if mode=="Opening" else None
+        gap if mode=="Opening" else None,
+        range_low, range_high, prev_mean,
+        bcl, bch,
+        first_low, first_high
     )
 
     if sl_auto > 0:
