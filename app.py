@@ -61,66 +61,51 @@ else:
 entry = st.number_input("Entry (optional)", key="entry")
 
 #━━━━━━━━━━━━━━━━━━━
-# 🎯 SL & TARGET OPTIONS ENGINE
+# 🎯 SL & TARGET OPTIONS
 #━━━━━━━━━━━━━━━━━━━
 st.markdown("### 🎯 SL & Target Options")
 
 sl_options = []
 target_options = []
 
-#━━━━━━━━ RANGE (TSL BASED)
-if mode == "Range" and tsl:
+#━━━━━━━━ RANGE (TSL REQUIRED)
+if mode == "Range":
 
-    sl_options = [
-        "Range Low (broken level during TSL flip)"
-    ]
+    if not tsl:
+        st.warning("TSL Flip required → No Trade")
+    else:
+        sl_options = [
+            "Range Low (broken level during TSL flip)"
+        ]
 
-    target_options = [
-        "Previous Range Mean"
-    ]
+        # TARGET LOGIC (CLEAN — NO CONFLICT)
+        if retr in ["0.6", "0.78"]:
+            target_options = ["0.384 Retracement Level"]
 
-    if retr in ["0.6", "0.78"]:
-        target_options.append("0.384 Retracement Level")
-        target_options.append("Previous Range High")
+            if bb == "Yes":
+                target_options.append("Range High (strong extension)")
+            else:
+                target_options.append("Previous Range High")
 
-    if retr in ["0.6", "0.78"] and bb == "Yes":
-        target_options.append("Range High (extended move)")
+        else:
+            target_options = ["Previous Range Mean"]
 
-#━━━━━━━━ RANGE (NO TSL)
-elif mode == "Range" and not tsl:
-
-    sl_options = [
-        "Range Low (Buy) / Range High (Sell)"
-    ]
-
-    target_options = [
-        "Opposite Range Boundary",
-        "Mid Range (optional)"
-    ]
-
-#━━━━━━━━ BREAKOUT
+#━━━━━━━━ BREAKOUT (TSL REQUIRED)
 elif mode == "Breakout":
 
-    sl_options = [
-        "Breakout Candle Low (Buy)",
-        "Breakout Candle High (Sell)",
-        "Retest Level (advanced)"
-    ]
-
-    if sq == "Yes" and tl == "Yes":
-        target_options = [
-            "3R",
-            "Structure High/Low",
-            "Measured Move"
-        ]
+    if not tsl:
+        st.warning("TSL Flip required → No Trade")
     else:
-        target_options = [
-            "1R",
-            "2R",
-            "Structure High/Low"
+        sl_options = [
+            "Breakout Candle Low (Buy)",
+            "Breakout Candle High (Sell)"
         ]
 
-#━━━━━━━━ OPENING
+        target_options = [
+            "1.618 Extension (ONLY target)"
+        ]
+
+#━━━━━━━━ OPENING (NO TSL REQUIRED)
 elif mode == "Opening":
 
     sl_options = [
@@ -135,11 +120,10 @@ elif mode == "Opening":
         ]
     else:
         target_options = [
-            "1R",
-            "Gap Fill (if applicable)"
+            "1R (conservative)"
         ]
 
-#━━━━━━━━ DISPLAY (BLUE BOX STYLE)
+#━━━━━━━━ DISPLAY (BLUE BOX)
 if sl_options:
     sl_text = "\n".join([f"• {opt}" for opt in sl_options])
     st.info(f"**SL Options:**\n{sl_text}")
@@ -155,7 +139,11 @@ if st.button("🚀 Evaluate Trade"):
 
     score = 0
 
-    if tsl:
+    # ⚠️ ONLY REQUIRE TSL FOR NON-OPENING
+    if mode != "Opening" and not tsl:
+        st.warning("TSL not satisfied → No Trade")
+
+    else:
         if mode == "Range":
             score = (
                 {"No":0,"Yes":1,"1T":1,"2T":2,"3T":3}[cons] +
@@ -170,46 +158,44 @@ if st.button("🚀 Evaluate Trade"):
                 {"Neutral":0,"Above 0.786":1,"Below 0.214":1}[htf]
             )
 
-        else:
+        elif mode == "Opening":
             score = {
                 ("Buy","Up"):3,
                 ("Buy","Down"):2,
                 ("Sell","Down"):3,
                 ("Sell","Up"):2
             }.get((prev, gap), 0)
-    else:
-        st.warning("TSL not satisfied → No Trade")
 
-    decision = "STRONG" if score >= 6 else "MODERATE" if score >= 3 else "NO TRADE"
+        decision = "STRONG" if score >= 6 else "MODERATE" if score >= 3 else "NO TRADE"
 
-    st.markdown(f"### {decision}")
-    st.write(f"Score: {score}")
+        st.markdown(f"### {decision}")
+        st.write(f"Score: {score}")
 
-    outcome = st.radio("Outcome", ["Win","Loss","BE"], horizontal=True)
-    review = st.text_area("🔍 Review", height=60)
+        outcome = st.radio("Outcome", ["Win","Loss","BE"], horizontal=True)
+        review = st.text_area("🔍 Review", height=60)
 
-    file_name = "simulation_trades.csv" if st.session_state.get("sim_mode", True) else "live_trades.csv"
+        file_name = "simulation_trades.csv" if st.session_state.get("sim_mode", True) else "live_trades.csv"
 
-    log = {
-        "Time": datetime.now(),
-        "Mode": mode,
-        "Score": score,
-        "Decision": decision,
-        "Outcome": outcome,
-        "Plan": plan,
-        "Review": review
-    }
+        log = {
+            "Time": datetime.now(),
+            "Mode": mode,
+            "Score": score,
+            "Decision": decision,
+            "Outcome": outcome,
+            "Plan": plan,
+            "Review": review
+        }
 
-    df = pd.DataFrame([log])
+        df = pd.DataFrame([log])
 
-    try:
-        old = pd.read_csv(file_name)
-        df = pd.concat([old, df], ignore_index=True)
-    except:
-        pass
+        try:
+            old = pd.read_csv(file_name)
+            df = pd.concat([old, df], ignore_index=True)
+        except:
+            pass
 
-    df.to_csv(file_name, index=False)
-    st.success("Saved ✅")
+        df.to_csv(file_name, index=False)
+        st.success("Saved ✅")
 
 #━━━━━━━━━━━━━━━━━━━
 # BOTTOM CONTROLS
