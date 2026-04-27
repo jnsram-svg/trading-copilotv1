@@ -12,7 +12,7 @@ st.set_page_config(layout="centered")
 st.markdown("## 📱 Trading Copilot")
 
 #━━━━━━━━━━━━━━━━━━━
-# SESSION STATE (HYBRID INPUT CORE)
+# SESSION STATE
 #━━━━━━━━━━━━━━━━━━━
 for key in ["entry","sl","target"]:
     if key not in st.session_state:
@@ -24,26 +24,23 @@ for key in ["entry","sl","target"]:
 mode = st.radio("Mode", ["Range","Breakout","Opening"], horizontal=True)
 
 #━━━━━━━━━━━━━━━━━━━
-# QUICK INPUT (VOICE/TEXT)
+# QUICK INPUT
 #━━━━━━━━━━━━━━━━━━━
 quick_input = st.text_input(
-    "🎤 Quick Input (Voice/Text)",
+    "🎤 Quick Input",
     placeholder="Buy 210 SL 205 Target 230"
 )
 
 #━━━━━━━━━━━━━━━━━━━
-# SMART PARSER
+# PARSER
 #━━━━━━━━━━━━━━━━━━━
 def extract_trade_levels(text):
     text = text.lower()
-
     numbers = list(map(float, re.findall(r"\d+\.?\d*", text)))
 
-    entry = None
-    sl = None
-    target = None
+    entry = sl = target = None
 
-    sl_match = re.search(r"(sl|stop|stoploss)[^\d]*(\d+\.?\d*)", text)
+    sl_match = re.search(r"(sl|stop)[^\d]*(\d+\.?\d*)", text)
     if sl_match:
         sl = float(sl_match.group(2))
 
@@ -59,33 +56,27 @@ def extract_trade_levels(text):
 
     return entry, sl, target
 
-#━━━━━━━━━━━━━━━━━━━
-# APPLY PARSED VALUES (SAFE)
-#━━━━━━━━━━━━━━━━━━━
 if quick_input:
     e, s, t = extract_trade_levels(quick_input)
-
-    if e is not None and st.session_state.entry == 0.0:
+    if e and st.session_state.entry == 0.0:
         st.session_state.entry = e
-
-    if s is not None and st.session_state.sl == 0.0:
+    if s and st.session_state.sl == 0.0:
         st.session_state.sl = s
-
-    if t is not None and st.session_state.target == 0.0:
+    if t and st.session_state.target == 0.0:
         st.session_state.target = t
 
 #━━━━━━━━━━━━━━━━━━━
 # PLAN
 #━━━━━━━━━━━━━━━━━━━
-plan = st.text_area("🧠 Plan", height=70)
+plan = st.text_area("🧠 Plan", height=60)
 
 #━━━━━━━━━━━━━━━━━━━
 # TSL
 #━━━━━━━━━━━━━━━━━━━
-tsl = st.checkbox("TSL Flip Required")
+tsl = st.toggle("TSL Flip Required")
 
 #━━━━━━━━━━━━━━━━━━━
-# INPUTS
+# MODE INPUTS (COMPACT)
 #━━━━━━━━━━━━━━━━━━━
 if mode == "Range":
     cons = st.selectbox("Cons", ["No","Yes","1T","2T","3T"])
@@ -102,17 +93,67 @@ else:
     gap = st.selectbox("Gap", ["Up","Down","None"])
 
 #━━━━━━━━━━━━━━━━━━━
-# TRADE LEVELS (HYBRID INPUT)
+# TRADE LEVELS
 #━━━━━━━━━━━━━━━━━━━
 entry = st.number_input("Entry", key="entry")
-sl = st.number_input("Stop Loss", key="sl")
-target = st.number_input("Target", key="target")
 
 #━━━━━━━━━━━━━━━━━━━
-# SHOW DETECTED VALUES
+# 🔥 AUTO SL/TARGET ENGINE
 #━━━━━━━━━━━━━━━━━━━
-if quick_input:
-    st.caption(f"Detected → Entry: {entry}, SL: {sl}, Target: {target}")
+def generate_trade_plan(mode, entry):
+    plans = []
+
+    if entry == 0:
+        return []
+
+    if mode == "Breakout":
+        sls = [entry - 5, entry - 8]
+    elif mode == "Range":
+        sls = [entry - 4, entry - 7]
+    else:
+        sls = [entry - 6]
+
+    for sl in sls:
+        risk = abs(entry - sl)
+        targets = [entry + risk, entry + 2*risk, entry + 3*risk]
+
+        for tgt in targets:
+            rr = (tgt - entry) / risk if risk != 0 else 0
+            plans.append({
+                "SL": round(sl,2),
+                "Target": round(tgt,2),
+                "RR": round(rr,2)
+            })
+
+    return plans
+
+#━━━━━━━━━━━━━━━━━━━
+# GENERATE BUTTON
+#━━━━━━━━━━━━━━━━━━━
+if st.button("⚡ Generate Trade Plan"):
+    plans = generate_trade_plan(mode, entry)
+
+    if plans:
+        df = pd.DataFrame(plans)
+
+        st.markdown("### 🎯 Suggested Plans")
+        st.dataframe(df, use_container_width=True)
+
+        best = df[df["RR"] >= 2]
+
+        if not best.empty:
+            best_row = best.iloc[0]
+            st.success(
+                f"Best → SL: {best_row['SL']} | Target: {best_row['Target']} | RR: {best_row['RR']}"
+            )
+            st.session_state.sl = best_row["SL"]
+            st.session_state.target = best_row["Target"]
+
+#━━━━━━━━━━━━━━━━━━━
+# SHOW FINAL VALUES
+#━━━━━━━━━━━━━━━━━━━
+sl = st.number_input("Stop Loss", key="sl")
+target = st.number_input("Target", key="target")
 
 #━━━━━━━━━━━━━━━━━━━
 # EVALUATE
@@ -146,7 +187,6 @@ if st.button("🚀 Evaluate Trade"):
     else:
         st.warning("TSL not satisfied → No Trade")
 
-    # RR
     risk = abs(entry - sl)
     reward = abs(target - entry)
     rr = reward / risk if risk != 0 else 0
@@ -156,17 +196,10 @@ if st.button("🚀 Evaluate Trade"):
     st.markdown(f"### {decision}")
     st.write(f"Score: {score} | RR: {round(rr,2)}")
 
-    follow = st.radio("Follow Trade?", ["Yes","No"], horizontal=True)
-
-    #━━━━━━━━ OUTCOME
     outcome = st.radio("Outcome", ["Win","Loss","BE"], horizontal=True)
+    review = st.text_area("🔍 Review", height=60)
 
-    #━━━━━━━━ REVIEW
-    review = st.text_area("🔍 Review", height=70)
-
-    #━━━━━━━━ FILE MODE
-    sim_mode = st.session_state.get("sim_mode", True)
-    file_name = "simulation_trades.csv" if sim_mode else "live_trades.csv"
+    file_name = "simulation_trades.csv"
 
     log = {
         "Time": datetime.now(),
@@ -174,7 +207,6 @@ if st.button("🚀 Evaluate Trade"):
         "Score": score,
         "Decision": decision,
         "RR": rr,
-        "Followed": follow,
         "Outcome": outcome,
         "Plan": plan,
         "Review": review
@@ -189,85 +221,22 @@ if st.button("🚀 Evaluate Trade"):
         pass
 
     df.to_csv(file_name, index=False)
-
     st.success("Saved ✅")
-
-#━━━━━━━━━━━━━━━━━━━
-# BOTTOM CONTROLS
-#━━━━━━━━━━━━━━━━━━━
-st.markdown("---")
-
-c1, c2 = st.columns(2)
-
-with c1:
-    st.session_state.sim_mode = st.toggle("Simulation Mode", True)
-
-with c2:
-    if st.button("🗑 Clear Simulation Data"):
-        if os.path.exists("simulation_trades.csv"):
-            os.remove("simulation_trades.csv")
-            st.success("Simulation data cleared ✅")
-        else:
-            st.info("No simulation data found")
 
 #━━━━━━━━━━━━━━━━━━━
 # ANALYTICS
 #━━━━━━━━━━━━━━━━━━━
 st.markdown("### 📊 Analytics")
 
-file_name = "simulation_trades.csv" if st.session_state.sim_mode else "live_trades.csv"
-
 try:
-    df = pd.read_csv(file_name)
+    df = pd.read_csv("simulation_trades.csv")
 
     total = len(df)
     wins = len(df[df["Outcome"] == "Win"])
-
     win_rate = round((wins / total)*100, 2) if total > 0 else 0
 
-    c1, c2, c3 = st.columns(3)
-    c1.metric("Trades", total)
-    c2.metric("Wins", wins)
-    c3.metric("Win %", win_rate)
-
-    st.dataframe(df.tail(10), use_container_width=True)
-
-except:
-    st.info("No data yet")
-
-#━━━━━━━━━━━━━━━━━━━
-# WIN RATE BY SCORE
-#━━━━━━━━━━━━━━━━━━━
-st.markdown("### 📈 Win Rate by Score")
-
-try:
-    df = pd.read_csv(file_name)
-
-    if "Score" in df.columns and "Outcome" in df.columns:
-
-        score_stats = []
-
-        for s in sorted(df["Score"].dropna().unique()):
-            subset = df[df["Score"] == s]
-
-            total = len(subset)
-            wins = len(subset[subset["Outcome"] == "Win"])
-
-            win_rate = round((wins / total)*100, 2) if total > 0 else 0
-
-            score_stats.append({
-                "Score": s,
-                "Trades": total,
-                "Wins": wins,
-                "Win %": win_rate
-            })
-
-        score_df = pd.DataFrame(score_stats).sort_values(by="Score", ascending=False)
-
-        st.dataframe(score_df, use_container_width=True)
-
-    else:
-        st.info("Score/Outcome data not available yet")
+    st.metric("Trades", total)
+    st.metric("Win %", win_rate)
 
 except:
     st.info("No data yet")
