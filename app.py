@@ -61,7 +61,7 @@ else:
 entry = st.number_input("Entry (optional)", key="entry")
 
 #━━━━━━━━━━━━━━━━━━━
-# 🎯 SL & TARGET OPTIONS
+# 🎯 SL & TARGET OPTIONS ENGINE
 #━━━━━━━━━━━━━━━━━━━
 st.markdown("### 🎯 SL & Target Options")
 
@@ -139,14 +139,14 @@ elif mode == "Opening":
             "Gap Fill (if applicable)"
         ]
 
-#━━━━━━━━ DISPLAY
-st.markdown("#### 🔻 SL Options")
-for opt in sl_options:
-    st.write(f"• {opt}")
+#━━━━━━━━ DISPLAY (BLUE BOX STYLE)
+if sl_options:
+    sl_text = "\n".join([f"• {opt}" for opt in sl_options])
+    st.info(f"**SL Options:**\n{sl_text}")
 
-st.markdown("#### 🎯 Target Options")
-for opt in target_options:
-    st.write(f"• {opt}")
+if target_options:
+    tgt_text = "\n".join([f"• {opt}" for opt in target_options])
+    st.info(f"**Target Options:**\n{tgt_text}")
 
 #━━━━━━━━━━━━━━━━━━━
 # EVALUATE
