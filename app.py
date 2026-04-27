@@ -24,9 +24,26 @@ for key in ["entry"]:
 mode = st.radio("Mode", ["Range","Breakout","Opening"], horizontal=True)
 
 #━━━━━━━━━━━━━━━━━━━
-# QUICK INPUT
+# QUICK INPUT PARSER
 #━━━━━━━━━━━━━━━━━━━
-quick_input = st.text_input("🎤 Quick Input", placeholder="Buy 210")
+quick_input = st.text_input("🎤 Quick Input", placeholder="Buy 210 SL 205 TGT 220")
+
+entry = st.session_state.get("entry", 0.0)
+sl_price = 0.0
+tgt_price = 0.0
+
+if quick_input:
+    try:
+        numbers = list(map(float, re.findall(r'\d+\.?\d*', quick_input)))
+        if len(numbers) >= 1:
+            entry = numbers[0]
+            st.session_state.entry = entry
+        if len(numbers) >= 2:
+            sl_price = numbers[1]
+        if len(numbers) >= 3:
+            tgt_price = numbers[2]
+    except:
+        pass
 
 #━━━━━━━━━━━━━━━━━━━
 # PLAN
@@ -42,7 +59,7 @@ tsl = st.toggle("TSL Flip Required")
 # MODE INPUTS
 #━━━━━━━━━━━━━━━━━━━
 if mode == "Range":
-    cons = st.selectbox("Cons", ["No","Yes","1T","2T","3T"])
+    cons = st.selectbox("Cons", ["No","Yes","2T","3T"])  # cleaned
     bb = st.selectbox("BB", ["No","Yes"])
     retr = st.selectbox("Ret", ["No","0.6","0.78"])
 
@@ -56,81 +73,100 @@ else:
     gap = st.selectbox("Gap", ["Up","Down","None"])
 
 #━━━━━━━━━━━━━━━━━━━
-# ENTRY (optional)
+# ENTRY
 #━━━━━━━━━━━━━━━━━━━
-entry = st.number_input("Entry (optional)", key="entry")
+entry = st.number_input("Entry", value=entry)
 
 #━━━━━━━━━━━━━━━━━━━
-# 🎯 SL & TARGET OPTIONS
+# MANUAL SL & TARGET
+#━━━━━━━━━━━━━━━━━━━
+st.markdown("### ⚙️ Manual SL & Target")
+
+col1, col2 = st.columns(2)
+
+with col1:
+    sl_manual = st.number_input("SL Price", value=sl_price)
+
+with col2:
+    tgt_manual = st.number_input("Target Price", value=tgt_price)
+
+#━━━━━━━━━━━━━━━━━━━
+# RR BASED TARGET
+#━━━━━━━━━━━━━━━━━━━
+use_rr = st.toggle("Auto Target (RR based)")
+
+if use_rr and entry and sl_manual:
+    rr = st.selectbox("RR", [1, 1.5, 2, 3], index=2)
+
+    risk = abs(entry - sl_manual)
+
+    if entry > sl_manual:  # BUY
+        tgt_manual = entry + (risk * rr)
+    else:  # SELL
+        tgt_manual = entry - (risk * rr)
+
+    st.success(f"Auto Target: {round(tgt_manual,2)}")
+
+#━━━━━━━━━━━━━━━━━━━
+# RR DISPLAY
+#━━━━━━━━━━━━━━━━━━━
+if entry and sl_manual and tgt_manual and sl_manual != entry:
+    rr_calc = abs(tgt_manual - entry) / abs(entry - sl_manual)
+    st.info(f"📊 RR = {round(rr_calc,2)}")
+
+#━━━━━━━━━━━━━━━━━━━
+# EXIT INPUT
+#━━━━━━━━━━━━━━━━━━━
+st.markdown("### 🚪 Exit")
+exit_price = st.number_input("Exit Price", value=0.0)
+
+#━━━━━━━━━━━━━━━━━━━
+# SL & TARGET LOGIC DISPLAY
 #━━━━━━━━━━━━━━━━━━━
 st.markdown("### 🎯 SL & Target Options")
 
 sl_options = []
 target_options = []
 
-#━━━━━━━━ RANGE (TSL REQUIRED)
 if mode == "Range":
 
     if not tsl:
         st.warning("TSL Flip required → No Trade")
     else:
-        sl_options = [
-            "Range Low (broken level during TSL flip)"
-        ]
+        sl_options = ["Range Low (TSL flip level)"]
 
-        # TARGET LOGIC (CLEAN — NO CONFLICT)
         if retr in ["0.6", "0.78"]:
-            target_options = ["0.384 Retracement Level"]
+            target_options = ["0.384 Retracement"]
 
             if bb == "Yes":
-                target_options.append("Range High (strong extension)")
+                target_options.append("Range High")
             else:
-                target_options.append("Previous Range High")
-
+                target_options.append("Previous High")
         else:
-            target_options = ["Previous Range Mean"]
+            target_options = ["Range Mean"]
 
-#━━━━━━━━ BREAKOUT (TSL REQUIRED)
 elif mode == "Breakout":
 
     if not tsl:
         st.warning("TSL Flip required → No Trade")
     else:
-        sl_options = [
-            "Breakout Candle Low (Buy)",
-            "Breakout Candle High (Sell)"
-        ]
+        sl_options = ["Breakout Candle Low/High"]
+        target_options = ["1.618 Extension"]
 
-        target_options = [
-            "1.618 Extension (ONLY target)"
-        ]
-
-#━━━━━━━━ OPENING (NO TSL REQUIRED)
 elif mode == "Opening":
 
-    sl_options = [
-        "First 5-min Candle Low (Buy)",
-        "First 5-min Candle High (Sell)"
-    ]
+    sl_options = ["First 5-min Candle"]
 
     if (prev == "Buy" and gap == "Up") or (prev == "Sell" and gap == "Down"):
-        target_options = [
-            "1.5R",
-            "Structure Continuation"
-        ]
+        target_options = ["1.5R","Continuation"]
     else:
-        target_options = [
-            "1R (conservative)"
-        ]
+        target_options = ["1R"]
 
-#━━━━━━━━ DISPLAY (BLUE BOX)
 if sl_options:
-    sl_text = "\n".join([f"• {opt}" for opt in sl_options])
-    st.info(f"**SL Options:**\n{sl_text}")
+    st.info("**SL Options:**\n" + "\n".join([f"• {x}" for x in sl_options]))
 
 if target_options:
-    tgt_text = "\n".join([f"• {opt}" for opt in target_options])
-    st.info(f"**Target Options:**\n{tgt_text}")
+    st.info("**Target Options:**\n" + "\n".join([f"• {x}" for x in target_options]))
 
 #━━━━━━━━━━━━━━━━━━━
 # EVALUATE
@@ -139,14 +175,14 @@ if st.button("🚀 Evaluate Trade"):
 
     score = 0
 
-    # ⚠️ ONLY REQUIRE TSL FOR NON-OPENING
     if mode != "Opening" and not tsl:
         st.warning("TSL not satisfied → No Trade")
 
     else:
+
         if mode == "Range":
             score = (
-                {"No":0,"Yes":1,"1T":1,"2T":2,"3T":3}[cons] +
+                {"No":0,"Yes":1,"2T":2,"3T":3}[cons] +
                 {"No":0,"Yes":1}[bb] +
                 {"No":0,"0.6":1,"0.78":2}[retr]
             )
@@ -171,7 +207,35 @@ if st.button("🚀 Evaluate Trade"):
         st.markdown(f"### {decision}")
         st.write(f"Score: {score}")
 
-        outcome = st.radio("Outcome", ["Win","Loss","BE"], horizontal=True)
+        #━━━━━━━━ AUTO RESULT
+        trade_type = "BUY" if entry > sl_manual else "SELL"
+
+        pnl = 0
+        rr = 0
+        outcome = "NA"
+
+        if entry and sl_manual and exit_price:
+
+            risk = abs(entry - sl_manual)
+
+            if trade_type == "BUY":
+                pnl = exit_price - entry
+            else:
+                pnl = entry - exit_price
+
+            rr = pnl / risk if risk != 0 else 0
+
+            if pnl > 0:
+                outcome = "Win"
+            elif pnl < 0:
+                outcome = "Loss"
+            else:
+                outcome = "BE"
+
+            st.success(f"Outcome: {outcome}")
+            st.write(f"PnL: {round(pnl,2)}")
+            st.write(f"RR: {round(rr,2)}")
+
         review = st.text_area("🔍 Review", height=60)
 
         file_name = "simulation_trades.csv" if st.session_state.get("sim_mode", True) else "live_trades.csv"
@@ -179,9 +243,16 @@ if st.button("🚀 Evaluate Trade"):
         log = {
             "Time": datetime.now(),
             "Mode": mode,
+            "Type": trade_type,
+            "Entry": entry,
+            "SL": sl_manual,
+            "Target": tgt_manual,
+            "Exit": exit_price,
+            "PnL": round(pnl, 2),
+            "RR": round(rr, 2),
+            "Outcome": outcome,
             "Score": score,
             "Decision": decision,
-            "Outcome": outcome,
             "Plan": plan,
             "Review": review
         }
@@ -227,12 +298,16 @@ try:
 
     total = len(df)
     wins = len(df[df["Outcome"] == "Win"])
-    win_rate = round((wins / total)*100, 2) if total > 0 else 0
 
-    c1, c2, c3 = st.columns(3)
+    win_rate = round((wins / total)*100, 2) if total > 0 else 0
+    avg_rr = round(df["RR"].mean(), 2) if "RR" in df else 0
+    total_pnl = round(df["PnL"].sum(), 2) if "PnL" in df else 0
+
+    c1, c2, c3, c4 = st.columns(4)
     c1.metric("Trades", total)
-    c2.metric("Wins", wins)
-    c3.metric("Win %", win_rate)
+    c2.metric("Win %", win_rate)
+    c3.metric("Avg RR", avg_rr)
+    c4.metric("Total PnL", total_pnl)
 
     st.dataframe(df.tail(10), use_container_width=True)
 
