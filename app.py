@@ -56,10 +56,18 @@ plan = st.text_area("🧠 Plan", height=60)
 tsl = st.toggle("TSL Flip Required")
 
 #━━━━━━━━━━━━━━━━━━━
+# TIB CONFIRMATION
+#━━━━━━━━━━━━━━━━━━━
+tib_confirm = st.selectbox(
+    "TIB Confirmation (after TSL flip)",
+    ["None", "Above Box (Buy)", "Below Box (Sell)"]
+)
+
+#━━━━━━━━━━━━━━━━━━━
 # MODE INPUTS
 #━━━━━━━━━━━━━━━━━━━
 if mode == "Range":
-    cons = st.selectbox("Cons", ["No","2T","3T"])  # UPDATED
+    cons = st.selectbox("Cons", ["2T","3T"])
     bb = st.selectbox("BB", ["No","Yes"])
     retr = st.selectbox("Ret", ["No","0.6","0.78"])
 
@@ -133,7 +141,6 @@ if mode == "Range":
     if not tsl:
         st.warning("TSL Flip required → No Trade")
     else:
-        # UPDATED SL DISPLAY
         sl_options = [
             "PL (Previous Low) → Buy",
             "PH (Previous High) → Sell"
@@ -177,123 +184,121 @@ if target_options:
 #━━━━━━━━━━━━━━━━━━━
 if st.button("🚀 Evaluate Trade"):
 
-    score = 0
-
     if mode != "Opening" and not tsl:
         st.warning("TSL not satisfied → No Trade")
+        st.stop()
 
-    else:
+    # TIB RULE FOR RANGE
+    if mode == "Range":
+        if tib_confirm == "None":
+            st.warning("TIB confirmation missing → No Trade")
+            st.stop()
 
-        if mode == "Range":
-            score = (
-                {"2T":2,"3T":3}[cons] +
-                {"No":0,"Yes":1}[bb] +
-                {"No":0,"0.6":1,"0.78":2}[retr]
-            )
+    trade_type = "BUY" if entry > sl_manual else "SELL"
 
-        elif mode == "Breakout":
-            score = (
-                {"No":0,"Yes":2}[tl] +
-                {"No":0,"Yes":2}[sq] +
-                {"Neutral":0,"Above 0.786":1,"Below 0.214":1}[htf]
-            )
+    if mode == "Range":
+        if trade_type == "BUY" and tib_confirm != "Above Box (Buy)":
+            st.error("BUY requires close above TIB → No Trade")
+            st.stop()
+        if trade_type == "SELL" and tib_confirm != "Below Box (Sell)":
+            st.error("SELL requires close below TIB → No Trade")
+            st.stop()
 
-        elif mode == "Opening":
-            score = {
-                ("Buy","Up"):3,
-                ("Buy","Down"):2,
-                ("Sell","Down"):3,
-                ("Sell","Up"):2
-            }.get((prev, gap), 0)
+    score = 0
 
-        decision = "STRONG" if score >= 6 else "MODERATE" if score >= 3 else "NO TRADE"
+    if mode == "Range":
+        score = (
+            {"No":0,"2T":2,"3T":3}[cons] +
+            {"No":0,"Yes":1}[bb] +
+            {"No":0,"0.6":1,"0.78":2}[retr]
+        )
 
-        st.markdown(f"### {decision}")
-        st.write(f"Score: {score}")
+    elif mode == "Breakout":
+        score = (
+            {"No":0,"Yes":2}[tl] +
+            {"No":0,"Yes":2}[sq] +
+            {"Neutral":0,"Above 0.786":1,"Below 0.214":1}[htf]
+        )
 
-        #━━━━━━━━ TRADE TYPE
-        trade_type = "BUY" if entry > sl_manual else "SELL"
+    elif mode == "Opening":
+        score = {
+            ("Buy","Up"):3,
+            ("Buy","Down"):2,
+            ("Sell","Down"):3,
+            ("Sell","Up"):2
+        }.get((prev, gap), 0)
 
-        pnl = 0
-        rr = 0
-        outcome = "NA"
+    decision = "STRONG" if score >= 6 else "MODERATE" if score >= 3 else "NO TRADE"
 
-        if entry and sl_manual and exit_price:
+    st.markdown(f"### {decision}")
+    st.write(f"Score: {score}")
 
-            risk = abs(entry - sl_manual)
+    pnl = 0
+    rr = 0
+    outcome = "NA"
 
-            if trade_type == "BUY":
-                pnl = exit_price - entry
-            else:
-                pnl = entry - exit_price
+    if entry and sl_manual and exit_price:
 
-            rr = pnl / risk if risk != 0 else 0
+        risk = abs(entry - sl_manual)
 
-            # 🔥 RR FILTER
-            if rr < 1:
-                st.error("RR not favorable (<1) → NO TRADE")
-                decision = "NO TRADE"
-
-            if pnl > 0:
-                outcome = "Win"
-            elif pnl < 0:
-                outcome = "Loss"
-            else:
-                outcome = "BE"
-
-            st.success(f"Outcome: {outcome}")
-            st.write(f"PnL: {round(pnl,2)}")
-            st.write(f"RR: {round(rr,2)}")
-
-        review = st.text_area("🔍 Review", height=60)
-
-        file_name = "simulation_trades.csv" if st.session_state.get("sim_mode", True) else "live_trades.csv"
-
-        log = {
-            "Time": datetime.now(),
-            "Mode": mode,
-            "Type": trade_type,
-            "Entry": entry,
-            "SL": sl_manual,
-            "Target": tgt_manual,
-            "Exit": exit_price,
-            "PnL": round(pnl, 2),
-            "RR": round(rr, 2),
-            "Outcome": outcome,
-            "Score": score,
-            "Decision": decision,
-            "Plan": plan,
-            "Review": review
-        }
-
-        df = pd.DataFrame([log])
-
-        try:
-            old = pd.read_csv(file_name)
-            df = pd.concat([old, df], ignore_index=True)
-        except:
-            pass
-
-        df.to_csv(file_name, index=False)
-        st.success("Saved ✅")
-
-#━━━━━━━━━━━━━━━━━━━
-# CONTROLS
-#━━━━━━━━━━━━━━━━━━━
-st.markdown("---")
-
-c1, c2 = st.columns(2)
-
-with c1:
-    st.session_state.sim_mode = st.toggle("Simulation Mode", True)
-
-with c2:
-    if st.button("🗑 Clear Simulation Data"):
-        if os.path.exists("simulation_trades.csv"):
-            os.remove("simulation_trades.csv")
-            st.success("Simulation data cleared ✅")
+        if trade_type == "BUY":
+            pnl = exit_price - entry
         else:
-            st.info("No simulation data found")
+            pnl = entry - exit_price
+
+        rr = pnl / risk if risk != 0 else 0
+
+        # MODE BASED RR FILTER
+        min_rr = 1
+        if mode == "Range":
+            min_rr = 0.7
+
+        if rr < min_rr:
+            st.error(f"RR not favorable (<{min_rr}) → NO TRADE")
+            decision = "NO TRADE"
+
+        if pnl > 0:
+            outcome = "Win"
+        elif pnl < 0:
+            outcome = "Loss"
+        else:
+            outcome = "BE"
+
+        st.success(f"Outcome: {outcome}")
+        st.write(f"PnL: {round(pnl,2)}")
+        st.write(f"RR: {round(rr,2)}")
+
+    review = st.text_area("🔍 Review", height=60)
+
+    file_name = "simulation_trades.csv" if st.session_state.get("sim_mode", True) else "live_trades.csv"
+
+    log = {
+        "Time": datetime.now(),
+        "Mode": mode,
+        "Type": trade_type,
+        "Entry": entry,
+        "SL": sl_manual,
+        "Target": tgt_manual,
+        "Exit": exit_price,
+        "PnL": round(pnl, 2),
+        "RR": round(rr, 2),
+        "Outcome": outcome,
+        "Score": score,
+        "Decision": decision,
+        "Plan": plan,
+        "Review": review
+    }
+
+    df = pd.DataFrame([log])
+
+    try:
+        old = pd.read_csv(file_name)
+        df = pd.concat([old, df], ignore_index=True)
+    except:
+        pass
+
+    df.to_csv(file_name, index=False)
+    st.success("Saved ✅")
 
 #━━━━━━━━━━━━━━━━━━━
 # ANALYTICS
@@ -309,14 +314,24 @@ try:
     wins = len(df[df["Outcome"] == "Win"])
 
     win_rate = round((wins / total)*100, 2) if total > 0 else 0
-    avg_rr = round(df["RR"].mean(), 2) if "RR" in df else 0
-    total_pnl = round(df["PnL"].sum(), 2) if "PnL" in df else 0
+    avg_rr = round(df["RR"].mean(), 2)
+    total_pnl = round(df["PnL"].sum(), 2)
 
-    c1, c2, c3, c4 = st.columns(4)
+    # EXPECTANCY
+    avg_win = df[df["PnL"] > 0]["PnL"].mean() if len(df[df["PnL"] > 0]) > 0 else 0
+    avg_loss = df[df["PnL"] < 0]["PnL"].mean() if len(df[df["PnL"] < 0]) > 0 else 0
+
+    win_rate_dec = wins / total if total > 0 else 0
+    loss_rate = 1 - win_rate_dec
+
+    expectancy = (win_rate_dec * avg_win) + (loss_rate * avg_loss)
+
+    c1, c2, c3, c4, c5 = st.columns(5)
     c1.metric("Trades", total)
     c2.metric("Win %", win_rate)
     c3.metric("Avg RR", avg_rr)
     c4.metric("Total PnL", total_pnl)
+    c5.metric("Expectancy", round(expectancy,2))
 
     st.dataframe(df.tail(10), use_container_width=True)
 
