@@ -59,7 +59,7 @@ tsl = st.toggle("TSL Flip Required")
 # MODE INPUTS
 #━━━━━━━━━━━━━━━━━━━
 if mode == "Range":
-    cons = st.selectbox("Cons", ["2T","3T"])  # UPDATED
+    cons = st.selectbox("Cons", ["No","2T","3T"])  # UPDATED
     bb = st.selectbox("BB", ["No","Yes"])
     retr = st.selectbox("Ret", ["No","0.6","0.78"])
 
