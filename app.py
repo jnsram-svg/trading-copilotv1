@@ -59,7 +59,7 @@ with c1:
     tsl = st.toggle("TSL Flip ")
 
 with c2:
-    tib_confirm = st.toggle("TIB Confirm")
+    tib_confirm = st.toggle("TIB Con")
 
 #━━━━━━━━━━━━━━━━━━━
 # MODE INPUTS
