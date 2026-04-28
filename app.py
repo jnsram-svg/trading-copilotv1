@@ -24,7 +24,7 @@ for key in ["entry"]:
 mode = st.radio("Mode", ["Range","Breakout","Opening"], horizontal=True)
 
 #━━━━━━━━━━━━━━━━━━━
-# QUICK INPUT PARSER
+# QUICK INPUT
 #━━━━━━━━━━━━━━━━━━━
 quick_input = st.text_input("🎤 Quick Input", placeholder="Buy 210 SL 205 TGT 220")
 
@@ -59,7 +59,7 @@ tsl = st.toggle("TSL Flip Required")
 # MODE INPUTS
 #━━━━━━━━━━━━━━━━━━━
 if mode == "Range":
-    cons = st.selectbox("Cons", ["No","Yes","2T","3T"])  # cleaned
+    cons = st.selectbox("Cons", ["2T","3T"])  # UPDATED
     bb = st.selectbox("BB", ["No","Yes"])
     retr = st.selectbox("Ret", ["No","0.6","0.78"])
 
@@ -78,7 +78,7 @@ else:
 entry = st.number_input("Entry", value=entry)
 
 #━━━━━━━━━━━━━━━━━━━
-# MANUAL SL & TARGET
+# SL & TARGET
 #━━━━━━━━━━━━━━━━━━━
 st.markdown("### ⚙️ Manual SL & Target")
 
@@ -91,37 +91,37 @@ with col2:
     tgt_manual = st.number_input("Target Price", value=tgt_price)
 
 #━━━━━━━━━━━━━━━━━━━
-# RR BASED TARGET
+# RR AUTO TARGET
 #━━━━━━━━━━━━━━━━━━━
 use_rr = st.toggle("Auto Target (RR based)")
 
 if use_rr and entry and sl_manual:
-    rr = st.selectbox("RR", [1, 1.5, 2, 3], index=2)
-
+    rr_sel = st.selectbox("RR", [1, 1.5, 2, 3], index=2)
     risk = abs(entry - sl_manual)
 
-    if entry > sl_manual:  # BUY
-        tgt_manual = entry + (risk * rr)
-    else:  # SELL
-        tgt_manual = entry - (risk * rr)
+    if entry > sl_manual:
+        tgt_manual = entry + (risk * rr_sel)
+    else:
+        tgt_manual = entry - (risk * rr_sel)
 
     st.success(f"Auto Target: {round(tgt_manual,2)}")
 
 #━━━━━━━━━━━━━━━━━━━
 # RR DISPLAY
 #━━━━━━━━━━━━━━━━━━━
+rr_calc = 0
 if entry and sl_manual and tgt_manual and sl_manual != entry:
     rr_calc = abs(tgt_manual - entry) / abs(entry - sl_manual)
     st.info(f"📊 RR = {round(rr_calc,2)}")
 
 #━━━━━━━━━━━━━━━━━━━
-# EXIT INPUT
+# EXIT
 #━━━━━━━━━━━━━━━━━━━
 st.markdown("### 🚪 Exit")
 exit_price = st.number_input("Exit Price", value=0.0)
 
 #━━━━━━━━━━━━━━━━━━━
-# SL & TARGET LOGIC DISPLAY
+# SL & TARGET DISPLAY
 #━━━━━━━━━━━━━━━━━━━
 st.markdown("### 🎯 SL & Target Options")
 
@@ -133,7 +133,11 @@ if mode == "Range":
     if not tsl:
         st.warning("TSL Flip required → No Trade")
     else:
-        sl_options = ["Range Low (TSL flip level)"]
+        # UPDATED SL DISPLAY
+        sl_options = [
+            "PL (Previous Low) → Buy",
+            "PH (Previous High) → Sell"
+        ]
 
         if retr in ["0.6", "0.78"]:
             target_options = ["0.384 Retracement"]
@@ -182,7 +186,7 @@ if st.button("🚀 Evaluate Trade"):
 
         if mode == "Range":
             score = (
-                {"No":0,"Yes":1,"2T":2,"3T":3}[cons] +
+                {"2T":2,"3T":3}[cons] +
                 {"No":0,"Yes":1}[bb] +
                 {"No":0,"0.6":1,"0.78":2}[retr]
             )
@@ -207,7 +211,7 @@ if st.button("🚀 Evaluate Trade"):
         st.markdown(f"### {decision}")
         st.write(f"Score: {score}")
 
-        #━━━━━━━━ AUTO RESULT
+        #━━━━━━━━ TRADE TYPE
         trade_type = "BUY" if entry > sl_manual else "SELL"
 
         pnl = 0
@@ -224,6 +228,11 @@ if st.button("🚀 Evaluate Trade"):
                 pnl = entry - exit_price
 
             rr = pnl / risk if risk != 0 else 0
+
+            # 🔥 RR FILTER
+            if rr < 1:
+                st.error("RR not favorable (<1) → NO TRADE")
+                decision = "NO TRADE"
 
             if pnl > 0:
                 outcome = "Win"
@@ -269,7 +278,7 @@ if st.button("🚀 Evaluate Trade"):
         st.success("Saved ✅")
 
 #━━━━━━━━━━━━━━━━━━━
-# BOTTOM CONTROLS
+# CONTROLS
 #━━━━━━━━━━━━━━━━━━━
 st.markdown("---")
 
