@@ -51,23 +51,21 @@ if quick_input:
 plan = st.text_area("🧠 Plan", height=60)
 
 #━━━━━━━━━━━━━━━━━━━
-# TSL
+# TSL + TIB (SIDE BY SIDE)
 #━━━━━━━━━━━━━━━━━━━
-tsl = st.toggle("TSL Flip Required")
+c1, c2 = st.columns(2)
 
-#━━━━━━━━━━━━━━━━━━━
-# TIB CONFIRMATION
-#━━━━━━━━━━━━━━━━━━━
-tib_confirm = st.selectbox(
-    "TIB Confirmation (after TSL flip)",
-    ["None", "Above Box (Buy)", "Below Box (Sell)"]
-)
+with c1:
+    tsl = st.toggle("TSL Flip Required")
+
+with c2:
+    tib_confirm = st.toggle("TIB Confirm")
 
 #━━━━━━━━━━━━━━━━━━━
 # MODE INPUTS
 #━━━━━━━━━━━━━━━━━━━
 if mode == "Range":
-    cons = st.selectbox("Cons", ["2T","3T"])
+    cons = st.selectbox("Cons", ["No","2T","3T"])  # UPDATED
     bb = st.selectbox("BB", ["No","Yes"])
     retr = st.selectbox("Ret", ["No","0.6","0.78"])
 
@@ -188,24 +186,15 @@ if st.button("🚀 Evaluate Trade"):
         st.warning("TSL not satisfied → No Trade")
         st.stop()
 
-    # TIB RULE FOR RANGE
-    if mode == "Range":
-        if tib_confirm == "None":
-            st.warning("TIB confirmation missing → No Trade")
-            st.stop()
-
     trade_type = "BUY" if entry > sl_manual else "SELL"
 
+    # TIB RULE (RANGE ONLY)
     if mode == "Range":
-        if trade_type == "BUY" and tib_confirm != "Above Box (Buy)":
-            st.error("BUY requires close above TIB → No Trade")
-            st.stop()
-        if trade_type == "SELL" and tib_confirm != "Below Box (Sell)":
-            st.error("SELL requires close below TIB → No Trade")
+        if not tib_confirm:
+            st.warning("TIB not confirmed → No Trade")
             st.stop()
 
-    score = 0
-
+    # SCORE
     if mode == "Range":
         score = (
             {"No":0,"2T":2,"3T":3}[cons] +
@@ -220,7 +209,7 @@ if st.button("🚀 Evaluate Trade"):
             {"Neutral":0,"Above 0.786":1,"Below 0.214":1}[htf]
         )
 
-    elif mode == "Opening":
+    else:
         score = {
             ("Buy","Up"):3,
             ("Buy","Down"):2,
@@ -241,28 +230,17 @@ if st.button("🚀 Evaluate Trade"):
 
         risk = abs(entry - sl_manual)
 
-        if trade_type == "BUY":
-            pnl = exit_price - entry
-        else:
-            pnl = entry - exit_price
-
+        pnl = (exit_price - entry) if trade_type == "BUY" else (entry - exit_price)
         rr = pnl / risk if risk != 0 else 0
 
-        # MODE BASED RR FILTER
-        min_rr = 1
-        if mode == "Range":
-            min_rr = 0.7
+        # MODE BASED RR
+        min_rr = 0.7 if mode == "Range" else 1
 
         if rr < min_rr:
             st.error(f"RR not favorable (<{min_rr}) → NO TRADE")
             decision = "NO TRADE"
 
-        if pnl > 0:
-            outcome = "Win"
-        elif pnl < 0:
-            outcome = "Loss"
-        else:
-            outcome = "BE"
+        outcome = "Win" if pnl > 0 else "Loss" if pnl < 0 else "BE"
 
         st.success(f"Outcome: {outcome}")
         st.write(f"PnL: {round(pnl,2)}")
@@ -317,14 +295,11 @@ try:
     avg_rr = round(df["RR"].mean(), 2)
     total_pnl = round(df["PnL"].sum(), 2)
 
-    # EXPECTANCY
     avg_win = df[df["PnL"] > 0]["PnL"].mean() if len(df[df["PnL"] > 0]) > 0 else 0
     avg_loss = df[df["PnL"] < 0]["PnL"].mean() if len(df[df["PnL"] < 0]) > 0 else 0
 
     win_rate_dec = wins / total if total > 0 else 0
-    loss_rate = 1 - win_rate_dec
-
-    expectancy = (win_rate_dec * avg_win) + (loss_rate * avg_loss)
+    expectancy = (win_rate_dec * avg_win) + ((1 - win_rate_dec) * avg_loss)
 
     c1, c2, c3, c4, c5 = st.columns(5)
     c1.metric("Trades", total)
