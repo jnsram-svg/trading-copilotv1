@@ -56,7 +56,7 @@ plan = st.text_area("🧠 Plan", height=60)
 c1, c2 = st.columns(2)
 
 with c1:
-    tsl = st.toggle("TSL Flip Required")
+    tsl = st.toggle("TSL Flip ")
 
 with c2:
     tib_confirm = st.toggle("TIB Confirm")
