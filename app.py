@@ -73,57 +73,7 @@ else:
     gap = st.selectbox("Gap", ["Up","Down","None"])
 
 #━━━━━━━━━━━━━━━━━━━
-# ENTRY
-#━━━━━━━━━━━━━━━━━━━
-entry = st.number_input("Entry", value=entry)
-
-#━━━━━━━━━━━━━━━━━━━
-# SL & TARGET
-#━━━━━━━━━━━━━━━━━━━
-st.markdown("### ⚙️ Manual SL & Target")
-
-col1, col2 = st.columns(2)
-
-with col1:
-    sl_manual = st.number_input("SL Price", value=sl_price)
-
-with col2:
-    tgt_manual = st.number_input("Target Price", value=tgt_price)
-
-#━━━━━━━━━━━━━━━━━━━
-# RR AUTO TARGET
-#━━━━━━━━━━━━━━━━━━━
-use_rr = st.toggle("Auto Target (RR based)")
-
-if use_rr and entry and sl_manual:
-    rr_sel = st.selectbox("RR", [1, 1.5, 2, 3], index=2)
-
-    risk = abs(entry - sl_manual)
-
-    if entry > sl_manual:
-        tgt_manual = entry + (risk * rr_sel)
-    else:
-        tgt_manual = entry - (risk * rr_sel)
-
-    st.success(f"Auto Target: {round(tgt_manual,2)}")
-
-#━━━━━━━━━━━━━━━━━━━
-# PLANNED RR (IMPORTANT FIX)
-#━━━━━━━━━━━━━━━━━━━
-planned_rr = 0
-
-if entry and sl_manual and tgt_manual and sl_manual != entry:
-    planned_rr = abs(tgt_manual - entry) / abs(entry - sl_manual)
-    st.info(f"📊 Planned RR = {round(planned_rr,2)}")
-
-#━━━━━━━━━━━━━━━━━━━
-# EXIT INPUT
-#━━━━━━━━━━━━━━━━━━━
-st.markdown("### 🚪 Exit")
-exit_price = st.number_input("Exit Price", value=0.0)
-
-#━━━━━━━━━━━━━━━━━━━
-# DISPLAY OPTIONS
+# SL & TARGET OPTIONS (MOVED UP)
 #━━━━━━━━━━━━━━━━━━━
 st.markdown("### 🎯 SL & Target Options")
 
@@ -171,11 +121,26 @@ if target_options:
     st.info("**Target Options:**\n" + "\n".join([f"• {x}" for x in target_options]))
 
 #━━━━━━━━━━━━━━━━━━━
-# EVALUATE
+# ENTRY
+#━━━━━━━━━━━━━━━━━━━
+entry = st.number_input("Entry", value=entry)
+
+#━━━━━━━━━━━━━━━━━━━
+# SL & TARGET INPUTS (NO HEADER)
+#━━━━━━━━━━━━━━━━━━━
+col1, col2 = st.columns(2)
+
+with col1:
+    sl_manual = st.number_input("SL Price", value=sl_price)
+
+with col2:
+    tgt_manual = st.number_input("Target Price", value=tgt_price)
+
+#━━━━━━━━━━━━━━━━━━━
+# EVALUATE BUTTON (MOVED HERE)
 #━━━━━━━━━━━━━━━━━━━
 if st.button("🚀 Evaluate Trade"):
 
-    # MODE VALIDATION
     if mode == "Range" and not tsl:
         st.warning("TSL not satisfied → No Trade")
         st.stop()
@@ -184,14 +149,16 @@ if st.button("🚀 Evaluate Trade"):
         st.warning("0.78 break not satisfied → No Trade")
         st.stop()
 
-    # RR FILTER (FIXED)
+    planned_rr = 0
+    if entry and sl_manual and tgt_manual and sl_manual != entry:
+        planned_rr = abs(tgt_manual - entry) / abs(entry - sl_manual)
+
     min_rr = 0.7 if mode == "Range" else 1
 
     if planned_rr < min_rr:
         st.error(f"Planned RR < {min_rr} → NO TRADE")
         st.stop()
 
-    # SCORE
     if mode == "Range":
         score = (
             {"No":0,"2T":2,"3T":3}[cons] +
@@ -219,7 +186,6 @@ if st.button("🚀 Evaluate Trade"):
     st.markdown(f"### {decision}")
     st.write(f"Score: {score}")
 
-    # REALIZED RESULT
     trade_type = "BUY" if entry > sl_manual else "SELL"
 
     pnl = 0
@@ -229,7 +195,6 @@ if st.button("🚀 Evaluate Trade"):
     if entry and sl_manual and exit_price:
 
         risk = abs(entry - sl_manual)
-
         pnl = (exit_price - entry) if trade_type == "BUY" else (entry - exit_price)
         rr = pnl / risk if risk != 0 else 0
 
@@ -270,6 +235,37 @@ if st.button("🚀 Evaluate Trade"):
 
     df.to_csv(file_name, index=False)
     st.success("Saved ✅")
+
+#━━━━━━━━━━━━━━━━━━━
+# RR DISPLAY (UNCHANGED POSITION)
+#━━━━━━━━━━━━━━━━━━━
+if entry and sl_manual and tgt_manual and sl_manual != entry:
+    rr_calc = abs(tgt_manual - entry) / abs(entry - sl_manual)
+    st.info(f"📊 Planned RR = {round(rr_calc,2)}")
+
+#━━━━━━━━━━━━━━━━━━━
+# EXIT INPUT
+#━━━━━━━━━━━━━━━━━━━
+st.markdown("### 🚪 Exit")
+exit_price = st.number_input("Exit Price", value=0.0)
+
+#━━━━━━━━━━━━━━━━━━━
+# BOTTOM CONTROLS
+#━━━━━━━━━━━━━━━━━━━
+st.markdown("---")
+
+c1, c2 = st.columns(2)
+
+with c1:
+    st.session_state.sim_mode = st.toggle("Simulation Mode", True)
+
+with c2:
+    if st.button("🗑 Clear Simulation Data"):
+        if os.path.exists("simulation_trades.csv"):
+            os.remove("simulation_trades.csv")
+            st.success("Simulation data cleared ✅")
+        else:
+            st.info("No simulation data found")
 
 #━━━━━━━━━━━━━━━━━━━
 # ANALYTICS
