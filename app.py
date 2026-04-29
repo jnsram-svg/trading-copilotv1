@@ -51,7 +51,7 @@ if quick_input:
 plan = st.text_area("🧠 Plan", height=60)
 
 #━━━━━━━━━━━━━━━━━━━
-# TSL (used for both modes)
+# TSL / 0.78
 #━━━━━━━━━━━━━━━━━━━
 tsl = st.toggle("TSL Flip / 0.78 Break")
 
@@ -73,7 +73,7 @@ else:
     gap = st.selectbox("Gap", ["Up","Down","None"])
 
 #━━━━━━━━━━━━━━━━━━━
-# SL & TARGET OPTIONS (MOVED UP)
+# SL & TARGET OPTIONS
 #━━━━━━━━━━━━━━━━━━━
 st.markdown("### 🎯 SL & Target Options")
 
@@ -81,7 +81,6 @@ sl_options = []
 target_options = []
 
 if mode == "Range":
-
     if not tsl:
         st.warning("TSL Flip required → No Trade")
     else:
@@ -98,7 +97,6 @@ if mode == "Range":
             target_options = ["Range Mean"]
 
 elif mode == "Breakout":
-
     if not tsl:
         st.warning("0.78 level not broken → No Trade")
     else:
@@ -106,7 +104,6 @@ elif mode == "Breakout":
         target_options = ["1.618 Extension"]
 
 elif mode == "Opening":
-
     sl_options = ["First 5-min Candle"]
 
     if (prev == "Buy" and gap == "Up") or (prev == "Sell" and gap == "Down"):
@@ -126,7 +123,7 @@ if target_options:
 entry = st.number_input("Entry", value=entry)
 
 #━━━━━━━━━━━━━━━━━━━
-# SL & TARGET INPUTS (NO HEADER)
+# SL & TARGET INPUTS
 #━━━━━━━━━━━━━━━━━━━
 col1, col2 = st.columns(2)
 
@@ -137,10 +134,20 @@ with col2:
     tgt_manual = st.number_input("Target Price", value=tgt_price)
 
 #━━━━━━━━━━━━━━━━━━━
-# EVALUATE BUTTON (MOVED HERE)
+# PLANNED RR (for decision)
+#━━━━━━━━━━━━━━━━━━━
+planned_rr = 0
+
+if entry and sl_manual and tgt_manual and sl_manual != entry:
+    planned_rr = abs(tgt_manual - entry) / abs(entry - sl_manual)
+    st.info(f"📊 Planned RR = {round(planned_rr,2)}")
+
+#━━━━━━━━━━━━━━━━━━━
+# EVALUATE
 #━━━━━━━━━━━━━━━━━━━
 if st.button("🚀 Evaluate Trade"):
 
+    # MODE VALIDATION
     if mode == "Range" and not tsl:
         st.warning("TSL not satisfied → No Trade")
         st.stop()
@@ -149,16 +156,14 @@ if st.button("🚀 Evaluate Trade"):
         st.warning("0.78 break not satisfied → No Trade")
         st.stop()
 
-    planned_rr = 0
-    if entry and sl_manual and tgt_manual and sl_manual != entry:
-        planned_rr = abs(tgt_manual - entry) / abs(entry - sl_manual)
-
+    # RR FILTER
     min_rr = 0.7 if mode == "Range" else 1
 
     if planned_rr < min_rr:
         st.error(f"Planned RR < {min_rr} → NO TRADE")
         st.stop()
 
+    # SCORE
     if mode == "Range":
         score = (
             {"No":0,"2T":2,"3T":3}[cons] +
@@ -188,11 +193,12 @@ if st.button("🚀 Evaluate Trade"):
 
     trade_type = "BUY" if entry > sl_manual else "SELL"
 
+    #━━━━━━━━ OUTCOME (OPTIONAL)
     pnl = 0
     rr = 0
-    outcome = "NA"
+    outcome = "Pending"
 
-    if entry and sl_manual and exit_price:
+    if exit_price > 0:
 
         risk = abs(entry - sl_manual)
         pnl = (exit_price - entry) if trade_type == "BUY" else (entry - exit_price)
@@ -237,14 +243,7 @@ if st.button("🚀 Evaluate Trade"):
     st.success("Saved ✅")
 
 #━━━━━━━━━━━━━━━━━━━
-# RR DISPLAY (UNCHANGED POSITION)
-#━━━━━━━━━━━━━━━━━━━
-if entry and sl_manual and tgt_manual and sl_manual != entry:
-    rr_calc = abs(tgt_manual - entry) / abs(entry - sl_manual)
-    st.info(f"📊 Planned RR = {round(rr_calc,2)}")
-
-#━━━━━━━━━━━━━━━━━━━
-# EXIT INPUT
+# EXIT INPUT (AFTER EVALUATION)
 #━━━━━━━━━━━━━━━━━━━
 st.markdown("### 🚪 Exit")
 exit_price = st.number_input("Exit Price", value=0.0)
