@@ -12,6 +12,9 @@ st.markdown("## 📱 Trading Copilot")
 if "entry" not in st.session_state:
     st.session_state.entry = 0.0
 
+if "sim_mode" not in st.session_state:
+    st.session_state.sim_mode = True
+
 # MODE
 mode = st.radio("Mode", ["Range","Breakout","Opening"], horizontal=True)
 
@@ -36,7 +39,7 @@ if quick_input:
 plan = st.text_area("🧠 Plan", height=60)
 
 #━━━━━━━━━━━━━━━━━━━
-# TSL BUY / SELL (FIXED COLUMN NAMES)
+# TSL BUY / SELL
 #━━━━━━━━━━━━━━━━━━━
 tsl_buy = False
 tsl_sell = False
@@ -53,19 +56,32 @@ if mode == "Range":
         tsl_sell = st.toggle("TSL Sell")
 
     if tsl_buy and tsl_sell:
-        st.warning("Select only one: TSL Buy or TSL Sell")
-        st.stop()
-
-    if tsl_buy:
+        trade_type = None
+    elif tsl_buy:
         trade_type = "BUY"
     elif tsl_sell:
         trade_type = "SELL"
     else:
         trade_type = None
 
+    if trade_type is None:
+        st.warning("Select only one: TSL Buy or TSL Sell")
+        st.stop()
+
 elif mode == "Breakout":
-    brk078 = st.toggle("0.78 Break")
-    trade_type = "BUY" if st.toggle("BUY", True) else "SELL"
+    # ✅ UPDATED LOGIC
+    brk_buy = st.toggle("0.78 BUY")
+    brk_sell = st.toggle("0.78 SELL")
+
+    if brk_buy and not brk_sell:
+        trade_type = "BUY"
+        brk078 = True
+    elif brk_sell and not brk_buy:
+        trade_type = "SELL"
+        brk078 = True
+    else:
+        trade_type = None
+        brk078 = False
 
 else:
     trade_type = "BUY" if st.toggle("BUY", True) else "SELL"
@@ -88,15 +104,67 @@ else:
 # ENTRY + SL + TARGET
 entry = st.number_input("Entry", value=entry)
 
-c1, c2 = st.columns(2)
-with c1:
-    sl_manual = st.number_input("SL Price", value=sl_price)
-with c2:
-    tgt_manual = st.number_input("Target Price", value=tgt_price)
+# ✅ CONDITIONAL DISPLAY
+show_sl = False
+show_tgt = False
 
-# PLANNED RR (internal)
+if mode == "Range":
+    show_sl = True
+    show_tgt = True
+elif mode == "Breakout":
+    if brk078:
+        show_sl = True
+        show_tgt = True
+else:
+    show_sl = True
+    show_tgt = True
+
+c1, c2 = st.columns(2)
+
+with c1:
+    if show_sl:
+        sl_manual = st.number_input("SL Price", value=sl_price)
+    else:
+        sl_manual = 0.0
+
+with c2:
+    if show_tgt:
+        tgt_manual = st.number_input("Target Price", value=tgt_price)
+    else:
+        tgt_manual = 0.0
+
+#━━━━━━━━━━━━━━━━━━━
+# SL / TARGET CONTEXT (MATCHES EXISTING INPUTS)
+#━━━━━━━━━━━━━━━━━━━
+
+if show_sl:
+
+    # RANGE MODE (aligned with Cons / BB / Ret)
+    if mode == "Range":
+        st.info(
+            f"Range Context → Cons: {cons} | BB: {bb} | Ret: {retr}\n\n"
+            "SL: Structure / Pivot based\n"
+            "Target: Zone or RR based"
+        )
+
+    # BREAKOUT MODE (aligned with TL / SQ / HTF)
+    elif mode == "Breakout" and brk078:
+        st.info(
+            f"Breakout Context → TL: {tl} | SQ: {sq} | HTF: {htf}\n\n"
+            "SL: Break candle / Structure\n"
+            "Target: Expansion / Trail"
+        )
+
+    # OPENING MODE (aligned with Prev / Gap)
+    elif mode == "Opening":
+        st.info(
+            f"Opening Context → Prev: {prev} | Gap: {gap}\n\n"
+            "SL: Previous level / Tight\n"
+            "Target: Quick move / RR"
+        )
+# RR FIX
 planned_rr = 0
-if entry and sl_manual and tgt_manual and sl_manual != entry:
+if entry != 0 and sl_manual != 0 and tgt_manual != 0 and sl_manual != entry:
     planned_rr = abs(tgt_manual - entry) / abs(entry - sl_manual)
 
 # EXIT
@@ -110,20 +178,20 @@ col1, col2 = st.columns(2)
 with col1:
     if st.button("🚀 Evaluate Trade"):
 
-        if mode == "Range" and trade_type is None:
-            st.warning("Select TSL Buy or TSL Sell")
+        if trade_type is None:
+            st.error("Select trade direction")
             st.stop()
 
-        if mode == "Breakout" and not brk078:
-            st.warning("0.78 break required")
-            st.stop()
+        if mode == "Breakout":
+            if not brk078:
+                st.warning("0.78 break required")
+                st.stop()
 
         min_rr = 0.7 if mode == "Range" else 1
         if planned_rr < min_rr:
             st.error("RR too low → NO TRADE")
             st.stop()
 
-        # SCORE
         if mode == "Range":
             score = (
                 {"No":0,"2T":2,"3T":3}[cons] +
@@ -139,9 +207,12 @@ with col1:
         else:
             score = 2
 
-        if score >= 6:
+        max_score = 6 if mode == "Range" else 5 if mode == "Breakout" else 2
+        ratio = score / max_score if max_score != 0 else 0
+
+        if ratio >= 0.8:
             strength = "🔥 STRONG"
-        elif score >= 3:
+        elif ratio >= 0.5:
             strength = "⚡ MODERATE"
         else:
             strength = "❌ WEAK"
@@ -162,7 +233,6 @@ with col2:
             st.warning("Select trade direction")
             st.stop()
 
-        # SAFETY CHECK
         if trade_type == "BUY" and sl_manual >= entry:
             st.error("BUY: SL must be below Entry")
             st.stop()
@@ -173,6 +243,10 @@ with col2:
 
         risk = abs(entry - sl_manual)
 
+        if risk == 0:
+            st.error("Invalid SL (same as entry)")
+            st.stop()
+
         pnl = (exit_price - entry) if trade_type == "BUY" else (entry - exit_price)
         rr = pnl / risk if risk != 0 else 0
 
@@ -182,7 +256,6 @@ with col2:
         st.write(f"PnL: {round(pnl,2)}")
         st.write(f"RR: {round(rr,2)}")
 
-        # SAVE TRADE
         file_name = "simulation_trades.csv" if st.session_state.get("sim_mode", True) else "live_trades.csv"
 
         log = {
@@ -201,11 +274,9 @@ with col2:
 
         df = pd.DataFrame([log])
 
-        try:
+        if os.path.exists(file_name) and os.path.getsize(file_name) > 0:
             old = pd.read_csv(file_name)
             df = pd.concat([old, df], ignore_index=True)
-        except:
-            pass
 
         df.to_csv(file_name, index=False)
         st.success("Saved ✅")
@@ -216,7 +287,8 @@ st.markdown("---")
 c1, c2 = st.columns(2)
 
 with c1:
-    st.session_state.sim_mode = st.toggle("Simulation Mode", True)
+    sim_mode_input = st.toggle("Simulation Mode", st.session_state.sim_mode)
+    st.session_state.sim_mode = sim_mode_input
 
 with c2:
     if st.button("🗑 Clear Simulation Data"):
@@ -231,7 +303,7 @@ st.markdown("### 📊 Analytics")
 
 file_name = "simulation_trades.csv" if st.session_state.get("sim_mode", True) else "live_trades.csv"
 
-try:
+if os.path.exists(file_name) and os.path.getsize(file_name) > 0:
     df = pd.read_csv(file_name)
 
     total = len(df)
@@ -248,6 +320,5 @@ try:
     c4.metric("Total PnL", total_pnl)
 
     st.dataframe(df.tail(10), use_container_width=True)
-
-except:
+else:
     st.info("No data yet")
