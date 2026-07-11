@@ -1,9 +1,5 @@
-streamlit as st
-yfinance as yf
-pandas as pd
-numpy as np
-plotly.graph_objects as go
-plotly.subplots import make_subplots
-os
-import uuid
-from datetime import date, datetime
+streamlit>=1.28.0
+yfinance>=0.2.28
+pandas>=2.0.0
+numpy>=1.24.0
+plotly>=5.15.0
