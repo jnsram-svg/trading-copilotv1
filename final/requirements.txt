@@ -1,7 +1,9 @@
-streamlit
-pandas
-numpy
-plotly
-yfinance
-requests
-openpyxl
+streamlit as st
+yfinance as yf
+pandas as pd
+numpy as np
+plotly.graph_objects as go
+plotly.subplots import make_subplots
+os
+import uuid
+from datetime import date, datetime
