@@ -398,6 +398,34 @@ def shift_index_to_ist(idx):
     return idx + pd.Timedelta(hours=5, minutes=30)
 
 
+def align_ts_to_index(ts, reference_index):
+    """
+    Reconciles a Timestamp's tz-awareness with a DatetimeIndex's tz-awareness
+    before doing an exact .get_loc() lookup. Without this, looking up a
+    UTC-aware confirm_date (see normalize_event_date_columns) in a tz-naive
+    index - which is what yfinance hands back for daily ('1d') interval data -
+    raises KeyError in current pandas (aware vs naive is never considered
+    equal, even for the same instant).
+
+    normalize_event_date_columns() only relabels already-naive timestamps as
+    UTC (pd.to_datetime(..., utc=True) does not shift the clock when the
+    input has no tz info) - so converting back (tz_convert('UTC').tz_localize(None))
+    exactly reconstructs the original naive value, verified by round-trip.
+    """
+    if ts is None or pd.isna(ts):
+        return ts
+    ts = pd.Timestamp(ts)
+    index_tz = getattr(reference_index, 'tz', None)
+
+    if index_tz is None and ts.tzinfo is not None:
+        return ts.tz_convert('UTC').tz_localize(None)
+    if index_tz is not None and ts.tzinfo is None:
+        return ts.tz_localize(index_tz)
+    if index_tz is not None and ts.tzinfo is not None:
+        return ts.tz_convert(index_tz)
+    return ts
+
+
 def to_ist_display(df, cols=DATE_LIKE_EVENT_COLUMNS):
     """Converts UTC-normalized date columns to Asia/Kolkata for display only.
     Internal storage/sorting/cutoff math stays in UTC (see normalize_event_date_columns);
@@ -662,7 +690,7 @@ def _normalize_ohlc_columns(data):
 
 def fetch_yf_data(ticker, period, interval):
     try:
-        data = yf.download(ticker, period=period, interval=interval, progress=False)
+        data = yf.download(ticker, period=period, interval=interval, progress=False, timeout=15)
         if data.empty:
             return None
     except Exception:
@@ -674,8 +702,15 @@ def load_csv_data(uploaded_file):
     """
     Reads an uploaded OHLC CSV. Expects a date/datetime column plus
     open/high/low/close (volume optional), case-insensitive.
+
+    Resets the stream position first - Streamlit's UploadedFile persists
+    across reruns, so re-clicking Scan without re-uploading would otherwise
+    read from wherever the pointer was left after the previous read (often
+    EOF), silently returning nothing.
     """
     try:
+        if hasattr(uploaded_file, 'seek'):
+            uploaded_file.seek(0)
         raw = pd.read_csv(uploaded_file)
     except Exception:
         return None
@@ -785,8 +820,11 @@ def render_event_chart(data, ticker, event_row, window_bars):
     pnl_pct = event_row.get('trail_pnl_pct')
     trail_status = event_row.get('trail_status')
 
-    idx = data.index.get_loc(confirm_date)
-    exit_idx = data.index.get_loc(exit_date) if exit_date is not None and exit_date in data.index else idx
+    confirm_date_for_lookup = align_ts_to_index(confirm_date, data.index)
+    exit_date_for_lookup = align_ts_to_index(exit_date, data.index) if exit_date is not None else None
+
+    idx = data.index.get_loc(confirm_date_for_lookup)
+    exit_idx = data.index.get_loc(exit_date_for_lookup) if exit_date_for_lookup is not None and exit_date_for_lookup in data.index else idx
     lo = max(0, idx - window_bars - 15)
     hi = min(len(data), max(idx + 15, exit_idx + 10))
 
@@ -994,7 +1032,7 @@ def fetch_last_price(ticker):
     """Best-effort latest close for a ticker (Yahoo Finance only - not for
     positions sourced from an uploaded CSV, which won't have a live feed)."""
     try:
-        hist = yf.download(ticker, period="5d", interval="1d", progress=False)
+        hist = yf.download(ticker, period="5d", interval="1d", progress=False, timeout=15)
         hist = _normalize_ohlc_columns(hist)
         if not hist.empty:
             return float(hist["close"].iloc[-1])
@@ -1026,7 +1064,7 @@ def check_and_update_positions(df):
         entry_date_str = str(row["entry_date"])
 
         try:
-            hist = yf.download(ticker, start=entry_date_str, interval="1d", progress=False)
+            hist = yf.download(ticker, start=entry_date_str, interval="1d", progress=False, timeout=15)
             hist = _normalize_ohlc_columns(hist)
         except Exception:
             continue
@@ -1121,8 +1159,9 @@ INTERVAL_PERIOD_LIMITS = {
     "30m": ["1d", "5d", "1mo", "60d"],
     "1h":  ["5d", "1mo", "3mo", "6mo", "1y", "2y"],
     "1d":  ["1mo", "3mo", "6mo", "1y", "2y", "5y"],
+
 }
-RESAMPLE_RULE_BY_INTERVAL = {"15m": "15min", "1h": "1h", "1d": "1D"}
+RESAMPLE_RULE_BY_INTERVAL = {"15m": "15min", "1h": "1h", "1d": "1D","1w": "1W" }
 
 
 def render_scanner_page(page_key, fixed_interval, page_label):
@@ -1679,6 +1718,9 @@ elif st.session_state["app_page"] == "Daily Scanner":
     st.header("📅 Daily Confluence Scanner")
     render_scanner_page("daily", "1d", "Daily")
 
+elif st.session_state["app_page"] == "Daily Scanner":
+    st.header("📅 Daily Confluence Scanner")
+    render_scanner_page("daily", "1d", "Daily")
 # --------------------------
 # PORTFOLIO SETUP PAGE
 # --------------------------
