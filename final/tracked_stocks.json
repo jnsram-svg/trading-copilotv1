@@ -1,0 +1,18 @@
+[
+  {
+    "symbol": "ABBOTINDIA",
+    "added_at": "2026-07-20 12:39:31",
+    "added_price": 28255.0,
+    "hits_at_add": [
+      {
+        "timeframe": "Daily",
+        "pivot_type": "PH",
+        "pivot_price": 28280.0,
+        "distance_pct": -0.088,
+        "pivot_dt": "2026-05-18 00:00:00+05:30",
+        "regime": "BEARISH",
+        "signal": "SELL"
+      }
+    ]
+  }
+]
